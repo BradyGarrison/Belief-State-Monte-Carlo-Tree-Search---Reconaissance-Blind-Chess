@@ -37,7 +37,78 @@ class MHTBot():
         
     
 
+
+    
+
+
+def MovementSOISMCTS(board_set, color):
+    root = MovementMonteCarloTreeSearchNode(board_set = board_set, root_node = True, color = color)
+    selected_node = root.best_action()
+    return selected_node
         
+    """
+    make a tree
+    (v,d) = select a node from starting state
+    
+    if there are still actions at this node:
+        (v,d) = new node made by expanding current (v,d)
+        
+    get reward by simulating board
+    backpropogate that reward
+    
+    return an action
+        
+    """       
+
+    
+
+class BSMCTSNode():
+    def __init__(self, beliefs = None, parent=None, parent_action=None, root_node = False, color = None):
+        self.beliefs  = []
+        self.parent = parent
+        self.parent_action = parent_action
+        self.children = []
+        self._number_of_visits = 0
+        self.reward = 0
+        self.root_node = root_node
+        self.color = color
+
+        self._untried_actions = []
+        self._untried_actions = self.untried_actions()
+        self._actions = []
+        self._actions = self.actions()
+        
+    
+    
+    def untried_actions(self):
+        self._untried_actions = self.get_legal_actions(self.state)
+        return self._untried_actions
+    
+    def actions(self):
+        self._actions = self.get_legal_actions(self.state)
+        return self._actions
+    
+    def get_visits(self):
+        return self._number_of_visits
+    
+    def get_reward(self):
+        return self.reward
+  
+
+def nodeTakeAction(node, action):
+    new_color = not node.color
+    new_beliefs = []
+    
+    for belief in node.beliefs:
+        new_state = belief.state.copy()
+        
+        if action in new_state.legal_moves:
+            new_state.push(action)
+            new_beliefs.append(Belief(new_state, belief.probability))
+
+    return BSMCTSNode(new_beliefs, node, action, False, new_color)
+            
+
 
         """
 Broot , maximal samplings T, maximal iterations S
@@ -98,13 +169,15 @@ def expansion(belief, node):
     belief.visits = 0
     
     for action in belief.actions:
-        if nodeTakeAction(node, action) not in tree:
-            node.children.append(nodeTakeAction(node, action))
-            
-        if beliefTakeAction(belief, action) not in nodeTakeAction(node, action):
-            nodeTakeAction(node, action).addBelief(beliefTakeAction(belief, action))
-            beliefTakeAction(belief, action).reward = 0
-            beliefTakeAction(belief, action).visits = 0
+        new_node = nodeTakeAction(node, action)
+        if new_node not in node.children:
+            node.children.append(new_node)
+         
+        new_belief = beliefTakeAction(belief, action)
+        if new_belief not in new_node.beliefs:
+            new_node.addBelief(new_belief)
+            new_belief.reward = 0
+            new_belief.visits = 0
             
 
 """
@@ -177,12 +250,106 @@ def selection(belief, node):
     else:
         action = rouleteWheelSelection(actionProbabilities(node))
 
+
+    
+class Belief(state, probability):
+    
+    def __init__(self, state, probability):
+       self.visits = 0
+       self.reward = 0
+       self.state = state
+       self.actionVisits = {}
+       self.actionRewards = {}
+      
+    
+    def simulate(self):
+
+        simulation_number = 1
+
+
+        board = self.state
+        new_board = board.copy()
+        new_board.clear_stack()
+        enemy_king_square = new_board.king(not new_board.turn)
+        my_king_square = new_board.king(new_board.turn)
+        try:
+            enemy_king_attackers = new_board.attackers(new_board.turn, enemy_king_square)
+        except TypeError:
+            #print("Type Error Trapped")
+            enemy_king_attackers = False
+            
+        try:
+            my_king_attackers = new_board.attackers(not new_board.turn, my_king_square)
+        except TypeError:
+            #print("Type Error Trapped")
+            my_king_attackers = False
+            
+        if enemy_king_attackers:
+            #print("I can win")
+            return 1
+        elif my_king_attackers:
+            #print("I can lose")
+            return -1
+        else:
+            
+            x = self.singleRandomSim(new_board)
+            #print(x)
+            return x
+            
+            
+    def singleRandomSim(self, board):
+        #print("random sim")
+        new_board = board.copy()
+        while (not self.is_game_over(new_board)):
+            enemy_king_square = new_board.king(not new_board.turn)
+
+            try:
+                enemy_king_attackers = new_board.attackers(new_board.turn, enemy_king_square)
+            except TypeError:
+                #print("Type Error Trapped")
+                enemy_king_attackers = False
+
+            if enemy_king_attackers:
+                #print("Opponent king open!")
+                attacker_square = enemy_king_attackers.pop()
+                best_move = chess.Move(attacker_square, enemy_king_square)
+
+            else:
+                best_move = random.choice(self.get_legal_actions(new_board))
+
+            new_board.push(best_move)
+
+        return self.game_result(new_board, self.color)
+
     
     
+    def get_legal_actions(self, board): 
+        return list(board.pseudo_legal_moves)
+        
+    def is_game_over(self, board):
+        return board.king(True) == None or board.king(False) == None
+        
+    def game_result(self, board, color):
+        
+        if board.king(color) == None:
+            x = 1
+            return x
+        if board.king(not color) == None:
+            x = -1
+            return x
+        
+    def move(self, board, action):
+        new_board = board.copy()
+        new_board.push(action)
+        return new_board
+    
 
 
-
-
+def beliefTakeAction(belief, action):
+    new_state = belief.state.copy()
+    new_state.push(action)
+    
+    return Belief(new_state, belief.probability)
 
 
 
