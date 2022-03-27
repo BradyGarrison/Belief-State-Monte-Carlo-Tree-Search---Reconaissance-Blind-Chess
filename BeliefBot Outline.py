@@ -40,31 +40,11 @@ class MHTBot():
 
     
 
-
-def MovementSOISMCTS(board_set, color):
-    root = MovementMonteCarloTreeSearchNode(board_set = board_set, root_node = True, color = color)
-    selected_node = root.best_action()
-    return selected_node
-        
-    """
-    make a tree
-    (v,d) = select a node from starting state
-    
-    if there are still actions at this node:
-        (v,d) = new node made by expanding current (v,d)
-        
-    get reward by simulating board
-    backpropogate that reward
-    
-    return an action
-        
-    """       
-
     
 
 class BSMCTSNode():
-    def __init__(self, beliefs = None, parent=None, parent_action=None, root_node = False, color = None):
-        self.beliefs  = []
+    def __init__(self, beliefs = [], parent=None, parent_action=None, root_node = False, color = None):
+        self.beliefs  = beliefs
         self.parent = parent
         self.parent_action = parent_action
         self.children = []
@@ -107,6 +87,17 @@ def nodeTakeAction(node, action):
             new_beliefs.append(Belief(new_state, belief.probability))
 
     return BSMCTSNode(new_beliefs, node, action, False, new_color)
+
+def maxRewardAction(node):
+    choices_weights = []
+    for c in node.children:
+        reward = 0
+        for belief in c.beliefs:
+            reward += belief.reward
+
+        choices_weights.append(reward)
+   
+    return node.children[np.argmax(choices_weights).parent_action]
             
 
 
@@ -175,9 +166,7 @@ def expansion(belief, node):
          
         new_belief = beliefTakeAction(belief, action)
         if new_belief not in new_node.beliefs:
-            new_node.addBelief(new_belief)
-            new_belief.reward = 0
-            new_belief.visits = 0
+            new_node.beliefs.append(new_belief)
             
 
 """
@@ -190,7 +179,7 @@ def expansion(belief, node):
 
 def sampling(root_node):
     belief = generateBelief()
-    root_node.addBelief(belief)
+    root_node.beliefs.append(belief)
     
 """
 
@@ -215,7 +204,7 @@ N (γ ,a) [R − U(γ, a)]
 
 def search(belief, node):
     if (node.visits == 0):
-        reward = simulation(belief)
+        reward = belief.simulate()
         return reward
     
     if (node.children == []):
