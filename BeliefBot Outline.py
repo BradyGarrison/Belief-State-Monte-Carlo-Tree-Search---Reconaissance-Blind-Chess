@@ -1,39 +1,165 @@
 
 
-class MHTBot():
+class BeliefBot():
     
 
     def __init__(self):
+        #print("HELLO WORLD")
+        self.board = None
+        self.color = None
+        self.opponent_color = None
+        self.board_set = []
+        self.my_piece_captured_square = None
+        self.need_new_boards = True
+        self.sense_dict = {0:9,1:9,2:10,3:11,4:12,5:13,6:14,7:14,8:9,15:14,16:17,23:22,24:25,31:30,32:33,39:38,40:41,47:46,48:49,55:54,56:49,57:49,58:50,59:51,60:52,61:53,62:54,63:54}
+        self.piece_scores = {'P':1, 'N':3, 'B':3, 'R':5, 'Q':9, 'K':9}
         
+        
+        self.tablebase = chess.syzygy.open_tablebase(r"C:\Users\kimbe\Documents\Brady Stuff\NRL Stuff\Chess Tools\syzygy")
+        #self.tablebase.add_directory(r"E:\SEAP 2021\Syzygy-6")
+        # make sure stockfish environment variable exists
+        if STOCKFISH_ENV_VAR not in os.environ:
+            raise KeyError(
+                'TroutBot requires an environment variable called "{}" pointing to the Stockfish executable'.format(
+                    STOCKFISH_ENV_VAR))
+
+        # make sure there is actually a file
+        stockfish_path = os.environ[STOCKFISH_ENV_VAR]
+        if not os.path.exists(stockfish_path):
+            raise ValueError('No stockfish executable found at "{}"'.format(stockfish_path))
+
+        # initialize the stockfish engine
+        self.engine = chess.engine.SimpleEngine.popen_uci(stockfish_path)
+        self.engine.configure({"SyzygyPath":r"C:\Users\kimbe\Documents\Brady Stuff\NRL Stuff\Chess Tools\syzygy"})
+        
+
+    def possibleMoves(self, board, color):
+        board.turn = color
+        return list(board.pseudo_legal_moves)
     
     def handle_game_start(self, color: Color, board: chess.Board, opponent_name: str):
-        
+        self.board_set.append(board)
+        self.color = color
+        self.opponent_color = not color
+        self.first_turn = True
         
        
     def handle_opponent_move_result(self, captured_my_piece: bool, capture_square: Optional[Square]):
         
+        #print("")
+        self.my_piece_captured_square = capture_square
+        if captured_my_piece:
+            print("PIECE CAPTURED!")
+            print("original boards: " + str(len(self.board_set)))
+            new_board_set = self.board_set.copy()
+            for board in self.board_set:
+                new_board_set.remove(board)
+                square_attackers = board.attackers(self.opponent_color, self.my_piece_captured_square)
+
+                while square_attackers:
+                    new_board = board.copy()
+                    attacker_square = square_attackers.pop()
+                    new_board.push(chess.Move(attacker_square, self.my_piece_captured_square))
+                    new_board_set.append(new_board)
+               
+            print("new boards: " + str(len(new_board_set)))
+            self.board_set = new_board_set
+            self.need_new_boards = False
+            print("opponent move predict off")
+        
 
     def choose_sense(self, sense_actions: List[Square], move_actions: List[chess.Move], seconds_left: float) -> \
             Optional[Square]:
-        
+        pass
         
         
 
     def handle_sense_result(self, sense_result: List[Tuple[Square, Optional[chess.Piece]]]):
+        print("MHT SENSE RESULT")  
+        new_board_set = self.board_set.copy()
+        if self.need_new_boards:
+            #print("predicting opponent moves")
+            for board in self.board_set:
+                opponent_moves = self.possibleMoves(board, self.opponent_color)
+                for move in opponent_moves:
+                    newboard = board.copy()
+                    newboard.push(move)
+                    new_board_set.append(newboard)
+                
+            self.board_set = new_board_set.copy()
+            
+        else:
+            self.need_new_boards = True
+            #print("opponent move predict back on")
+            
+        #print("now narrowing down")
+        for board in self.board_set:
+            possible = True
+            for square, piece in sense_result:
+                if board.piece_at(square) != piece:
+                    possible = False
+            if not possible:
+                new_board_set.remove(board)
+                
+        
+        #print("narrow down boards: " + str(len(new_board_set)))
+        
+        
+        if len(new_board_set) <= 200:
+            self.board_set = new_board_set
+
+                
+        else:
+            #print("narrowed down")
+            self.board_set = random.sample(new_board_set,200)
         
         
         
         
     def choose_move(self, move_actions: List[chess.Move], seconds_left: float) -> Optional[chess.Move]:
+        x = self.board_set.copy()
+        try:
+            z = BSMCTS()
+        except IndexError:
+            
+            print("Index Error - Random Move")
+            return random.choice(move_actions + [None])
         
+        if move_choice in move_actions:
+            print("Movement MCTS successful")
+            return move_choice
+
+        else:
+            print("Random move")
+            return random.choice(move_actions + [None])
         
 
     def handle_move_result(self, requested_move: Optional[chess.Move], taken_move: Optional[chess.Move],
                            captured_opponent_piece: bool, capture_square: Optional[Square]):
+        #print("MHT move handled")
         
+        
+        if taken_move != None:
+            
+            #print("updating boards with my move")
+            new_board_set = self.board_set.copy()
+            for board in self.board_set:
+                new_board_set.remove(board)
+                if taken_move in board.pseudo_legal_moves:
+                    newboard = board.copy()
+                    newboard.push(taken_move)
+                    new_board_set.append(newboard)
+            
+            self.board_set = new_board_set
+        
+        #else:
+            #print("No change, so no move update")
+            
+        #print("")
 
     def handle_game_end(self, winner_color: Optional[Color], win_reason: Optional[WinReason],
                         game_history: GameHistory):
+        pass
         
     
 
@@ -216,6 +342,7 @@ def search(belief, node):
     
     belief.actionVisits[action] += 1
     
+    #Iterative Backpropogation
     belief.actionRewards[action] += (1/belief.actionVisits[action]) * (reward - belief.actionRewards[action])
     
     return reward
@@ -240,6 +367,20 @@ def selection(belief, node):
         action = rouleteWheelSelection(actionProbabilities(node))
 
 
+def noedRewardEstimation(node,belief,action):
+    pass
+
+def roulette_wheel_selection(population):
+  
+    # Computes the totallity of the population fitness
+    population_fitness = sum([chromosome.fitness for chromosome in population])
+    
+    # Computes for each chromosome the probability 
+    chromosome_probabilities = [chromosome.fitness/population_fitness for chromosome in population]
+    
+    # Selects one chromosome based on the computed probabilities
+    return np.random.choice(population p=chromosome_probabilities)
+
     
 class Belief(state, probability):
     
@@ -247,6 +388,7 @@ class Belief(state, probability):
        self.visits = 0
        self.reward = 0
        self.state = state
+       self.probability = probability
        self.actionVisits = {}
        self.actionRewards = {}
       
