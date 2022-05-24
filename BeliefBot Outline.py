@@ -1,3 +1,33 @@
+import chess
+import chess.engine
+import chess.syzygy
+import random
+import math
+import numpy as np
+from collections import defaultdict
+from reconchess import *
+import os
+
+
+import operator
+from collections import Counter
+from itertools import groupby
+import chess.svg
+
+
+def normalize(belief_state):
+    
+    raw_list = []
+    for belief in belief_state:
+        raw_list.append(belief.probability)
+        
+    norm_list = [float(i)/max(raw_list) for i in raw_list]
+    
+    for x in range(len(belief_state)):
+        belief_state[x].probability = norm_list[x]
+        
+    
+        
 
 
 class BeliefBot():
@@ -8,7 +38,7 @@ class BeliefBot():
         self.board = None
         self.color = None
         self.opponent_color = None
-        self.board_set = []
+        self.belief_state = []
         self.my_piece_captured_square = None
         self.need_new_boards = True
         self.sense_dict = {0:9,1:9,2:10,3:11,4:12,5:13,6:14,7:14,8:9,15:14,16:17,23:22,24:25,31:30,32:33,39:38,40:41,47:46,48:49,55:54,56:49,57:49,58:50,59:51,60:52,61:53,62:54,63:54}
@@ -38,7 +68,7 @@ class BeliefBot():
         return list(board.pseudo_legal_moves)
     
     def handle_game_start(self, color: Color, board: chess.Board, opponent_name: str):
-        self.board_set.append(board)
+        self.belief_state.append(Belief(board,1))
         self.color = color
         self.opponent_color = not color
         self.first_turn = True
@@ -46,78 +76,86 @@ class BeliefBot():
        
     def handle_opponent_move_result(self, captured_my_piece: bool, capture_square: Optional[Square]):
         
-        #print("")
         self.my_piece_captured_square = capture_square
         if captured_my_piece:
-            print("PIECE CAPTURED!")
-            print("original boards: " + str(len(self.board_set)))
-            new_board_set = self.board_set.copy()
-            for board in self.board_set:
-                new_board_set.remove(board)
+            new_belief_state = self.belief_state.copy()
+            for belief in belief_state:
+                board = belief.board
+                new_belief_state.remove(board)
                 square_attackers = board.attackers(self.opponent_color, self.my_piece_captured_square)
 
                 while square_attackers:
                     new_board = board.copy()
                     attacker_square = square_attackers.pop()
                     new_board.push(chess.Move(attacker_square, self.my_piece_captured_square))
-                    new_board_set.append(new_board)
+                    new_belief_state.append(new_board)
                
-            print("new boards: " + str(len(new_board_set)))
-            self.board_set = new_board_set
+            print("new boards: " + str(len(new_belief_state)))
+            
+            normalize(new_belief_state)
+            self.belief_state = new_belief_state
             self.need_new_boards = False
             print("opponent move predict off")
         
 
     def choose_sense(self, sense_actions: List[Square], move_actions: List[chess.Move], seconds_left: float) -> \
             Optional[Square]:
-        pass
+        x = self.belief_state.copy()
+        try:
+            z = BSMCTS()
+        except IndexError:
+            
+            print("Index Error - Random Sense")
+            return random.choice(sense_actions + [None])
+        
+        if sense_choice in sense_actions:
+            print("Sensing MCTS successful")
+            return sense_choice
+
+        else:
+            print("Random Sense")
+            return random.choice(sense_actions + [None])
+        
         
         
 
     def handle_sense_result(self, sense_result: List[Tuple[Square, Optional[chess.Piece]]]):
         print("MHT SENSE RESULT")  
-        new_board_set = self.board_set.copy()
+        new_belief_state = self.belief_state.copy()
         if self.need_new_boards:
             #print("predicting opponent moves")
-            for board in self.board_set:
+            for belief in self.belief_state:
+                board = belief.board
                 opponent_moves = self.possibleMoves(board, self.opponent_color)
                 for move in opponent_moves:
-                    newboard = board.copy()
-                    newboard.push(move)
-                    new_board_set.append(newboard)
+                    newbelief = beliefTakeAction(belief, move)
+                    new_belief_state.append(newbelief)
                 
-            self.board_set = new_board_set.copy()
+            self.belief_state = new_belief_state.copy()
             
         else:
             self.need_new_boards = True
             #print("opponent move predict back on")
             
         #print("now narrowing down")
-        for board in self.board_set:
+        for belief in self.belief_state:
+            board = belief.board
             possible = True
             for square, piece in sense_result:
                 if board.piece_at(square) != piece:
                     possible = False
             if not possible:
-                new_board_set.remove(board)
+                new_belief_state.remove(board)
                 
         
-        #print("narrow down boards: " + str(len(new_board_set)))
+        #print("narrow down boards: " + str(len(new_belief_state)))
         
-        
-        if len(new_board_set) <= 200:
-            self.board_set = new_board_set
-
-                
-        else:
-            #print("narrowed down")
-            self.board_set = random.sample(new_board_set,200)
-        
+        normalize(belief_state)
         
         
         
     def choose_move(self, move_actions: List[chess.Move], seconds_left: float) -> Optional[chess.Move]:
-        x = self.board_set.copy()
+        x = self.belief_state.copy()
         try:
             z = BSMCTS()
         except IndexError:
@@ -142,15 +180,16 @@ class BeliefBot():
         if taken_move != None:
             
             #print("updating boards with my move")
-            new_board_set = self.board_set.copy()
-            for board in self.board_set:
-                new_board_set.remove(board)
+            new_belief_state = self.belief_state.copy()
+            for belief in self.belief_state:
+                new_belief_state.remove(belief)
+                board = belief.board
                 if taken_move in board.pseudo_legal_moves:
-                    newboard = board.copy()
-                    newboard.push(taken_move)
-                    new_board_set.append(newboard)
+                    newbelief = beliefTakeAction(belief, taken_move)
+                    new_belief_state.append(newbelief)
             
-            self.board_set = new_board_set
+            self.belief_state = new_belief_state
+            normalize(belief_state)
         
         #else:
             #print("No change, so no move update")
@@ -162,7 +201,7 @@ class BeliefBot():
         pass
         
     
-
+    
 
     
 
@@ -226,8 +265,7 @@ def maxRewardAction(node):
     return node.children[np.argmax(choices_weights).parent_action]
             
 
-
-        """
+"""
 Broot , maximal samplings T, maximal iterations S
 1: function BS-MCTS Broot
 2: t ← 1
@@ -379,15 +417,15 @@ def roulette_wheel_selection(population):
     chromosome_probabilities = [chromosome.fitness/population_fitness for chromosome in population]
     
     # Selects one chromosome based on the computed probabilities
-    return np.random.choice(population p=chromosome_probabilities)
+    #return np.random.choice(population p=chromosome_probabilities)
 
     
-class Belief(state, probability):
+class Belief():
     
-    def __init__(self, state, probability):
+    def __init__(self, board, probability):
        self.visits = 0
        self.reward = 0
-       self.state = state
+       self.board = board
        self.probability = probability
        self.actionVisits = {}
        self.actionRewards = {}
