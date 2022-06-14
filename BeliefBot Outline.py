@@ -253,16 +253,27 @@ def nodeTakeAction(node, action):
 
     return BSMCTSNode(new_beliefs, node, action, False, new_color)
 
+def NodeReward(node):
+    reward = 0
+    for belief in node.beliefs:
+        reward += belief.reward
+    return reward 
+
 def maxRewardAction(node):
     choices_weights = []
     for c in node.children:
-        reward = 0
-        for belief in c.beliefs:
-            reward += belief.reward
+        reward = NodeReward(c)
 
         choices_weights.append(reward)
    
     return node.children[np.argmax(choices_weights).parent_action]
+
+def actionVisits(node, action):
+    visits = 0
+    for belief in node.beliefs:
+        visits += belief.actionVisits[action]
+        
+    return visits
             
 
 """
@@ -402,23 +413,24 @@ def selection(belief, node):
         action = nodeRewardEstimation(node, belief, action)
         
     else:
-        action = rouleteWheelSelection(actionProbabilities(node))
+        action = rouleteWheelSelection(beliefs)
 
 
-def noedRewardEstimation(node,belief,action):
-    pass
+def nodeRewardEstimation(node,belief,action):
+    exploration = 0.7
+    U = NodeReward(node) 
+    lnN = math.log(node._number_of_visits)
+    NBa = actionVisits(node, action)
+    return U + exploration * math.sqrt(lnN / NBa)
 
-def roulette_wheel_selection(population):
-  
-    # Computes the totallity of the population fitness
-    population_fitness = sum([chromosome.fitness for chromosome in population])
-    
-    # Computes for each chromosome the probability 
-    chromosome_probabilities = [chromosome.fitness/population_fitness for chromosome in population]
-    
-    # Selects one chromosome based on the computed probabilities
-    #return np.random.choice(population p=chromosome_probabilities)
-
+def roulette_wheel_selection(beliefs):
+    maximum = sum(belief.probability for belief in beliefs)
+    pick = random.uniform(0, maximum)
+    current = 0
+    for belief in beliefs:
+        current += belief.probability
+        if current > pick:
+            return belief
     
 class Belief():
     
