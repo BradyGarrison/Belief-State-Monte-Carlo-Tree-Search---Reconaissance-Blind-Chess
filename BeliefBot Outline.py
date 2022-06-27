@@ -100,6 +100,7 @@ class BeliefBot():
 
     def choose_sense(self, sense_actions: List[Square], move_actions: List[chess.Move], seconds_left: float) -> \
             Optional[Square]:
+        """
         x = self.belief_state.copy()
         try:
             z = BSMCTS()
@@ -115,7 +116,8 @@ class BeliefBot():
         else:
             print("Random Sense")
             return random.choice(sense_actions + [None])
-        
+        """
+        pass
         
         
 
@@ -156,8 +158,9 @@ class BeliefBot():
         
     def choose_move(self, move_actions: List[chess.Move], seconds_left: float) -> Optional[chess.Move]:
         x = self.belief_state.copy()
+        root_node = BSMCTSNode(root_node = True, color = self.color, beliefState = x)
         try:
-            z = BSMCTS()
+            z = BSMCTS(root_node, 100, 5)
         except IndexError:
             
             print("Index Error - Random Move")
@@ -208,36 +211,29 @@ class BeliefBot():
     
 
 class BSMCTSNode():
-    def __init__(self, beliefs = [], parent=None, parent_action=None, root_node = False, color = None):
+    def __init__(self, beliefs = [], parent=None, parent_action=None, root_node = False, color = None, beliefState = []):
         self.beliefs  = beliefs
         self.parent = parent
         self.parent_action = parent_action
         self.children = []
-        self._number_of_visits = 0
+        self.visits = 0
         self.reward = 0
         self.root_node = root_node
         self.color = color
 
-        self._untried_actions = []
-        self._untried_actions = self.untried_actions()
-        self._actions = []
-        self._actions = self.actions()
+        
+        self.beliefState = beliefState
         
     
     
-    def untried_actions(self):
-        self._untried_actions = self.get_legal_actions(self.state)
-        return self._untried_actions
-    
-    def actions(self):
-        self._actions = self.get_legal_actions(self.state)
-        return self._actions
-    
     def get_visits(self):
-        return self._number_of_visits
+        return self.visits
     
     def get_reward(self):
         return self.reward
+    
+    def generateBelief(self):
+        return random.sample(self.beliefState, 1)
   
 
 def nodeTakeAction(node, action):
@@ -353,7 +349,7 @@ def expansion(belief, node):
 """            
 
 def sampling(root_node):
-    belief = generateBelief()
+    belief = root_node.generateBelief()
     root_node.beliefs.append(belief)
     
 """
@@ -448,8 +444,8 @@ class Belief():
         simulation_number = 1
 
 
-        board = self.state
-        new_board = board.copy()
+        #board = self.board
+        new_board = self.board.copy()
         new_board.clear_stack()
         enemy_king_square = new_board.king(not new_board.turn)
         my_king_square = new_board.king(new_board.turn)
