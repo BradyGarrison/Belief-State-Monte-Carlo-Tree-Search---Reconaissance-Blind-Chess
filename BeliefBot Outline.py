@@ -211,7 +211,7 @@ class BeliefBot():
     
 
 class BSMCTSNode():
-    def __init__(self, beliefs = [], parent=None, parent_action=None, root_node = False, color = None, beliefState = []):
+    def __init__(self, beliefs = [], parent=None, parent_action=None, root_node = False, color = None, beliefState = [], playerColor = None):
         self.beliefs  = beliefs
         self.parent = parent
         self.parent_action = parent_action
@@ -220,9 +220,13 @@ class BSMCTSNode():
         self.reward = 0
         self.root_node = root_node
         self.color = color
-
         
         self.beliefState = beliefState
+        
+        self.playerColor = playerColor
+        
+        if self.root_node:
+            self.playerColor = self.color
         
     
     
@@ -233,7 +237,12 @@ class BSMCTSNode():
         return self.reward
     
     def generateBelief(self):
-        return random.sample(self.beliefState, 1)
+        belief = random.sample(self.beliefState, 1)[0]
+        #print(belief)
+        return belief
+    
+    def isPlayerNode(self):
+        return self.color == self.playerColor
   
 
 def nodeTakeAction(node, action):
@@ -241,19 +250,14 @@ def nodeTakeAction(node, action):
     new_beliefs = []
     
     for belief in node.beliefs:
-        new_state = belief.state.copy()
+        new_state = belief.board.copy()
         
         if action in new_state.legal_moves:
             new_state.push(action)
             new_beliefs.append(Belief(new_state, belief.probability))
 
-    return BSMCTSNode(new_beliefs, node, action, False, new_color)
+    return BSMCTSNode(new_beliefs, node, action, False, new_color, node.playerColor)
 
-def NodeReward(node):
-    reward = 0
-    for belief in node.beliefs:
-        reward += belief.reward
-    return reward 
 
 def maxRewardAction(node):
     choices_weights = []
@@ -270,7 +274,15 @@ def actionVisits(node, action):
         visits += belief.actionVisits[action]
         
     return visits
-            
+
+
+def actionReward(node, action):
+    reward = 0
+    for belief in node.beliefs:
+        reward += belief.actionRewards[action]
+        
+    return reward
+         
 
 """
 Broot , maximal samplings T, maximal iterations S
@@ -294,9 +306,11 @@ def BSMCTS(root_node, max_samples, max_iterations):
     t = 1
     while (t < max_samples):
         belief = sampling(root_node)
+        print("1" + str(belief))
         s = 1
         
         while (s < max_iterations):
+            print("2" + str(belief))
             reward = search(belief, root_node)
             belief.visits += 1
             s += 1
@@ -330,7 +344,7 @@ def expansion(belief, node):
     
     belief.visits = 0
     
-    for action in belief.actions:
+    for action in belief.actions():
         new_node = nodeTakeAction(node, action)
         if new_node not in node.children:
             node.children.append(new_node)
@@ -350,7 +364,9 @@ def expansion(belief, node):
 
 def sampling(root_node):
     belief = root_node.generateBelief()
+    #print(belief)
     root_node.beliefs.append(belief)
+    return belief
     
 """
 
@@ -374,6 +390,7 @@ N (γ ,a) [R − U(γ, a)]
 """
 
 def search(belief, node):
+    print("3" + str(belief))
     if (node.visits == 0):
         reward = belief.simulate()
         return reward
@@ -383,7 +400,7 @@ def search(belief, node):
         
     belief.visits += 1
     action = selection(belief, node)
-    reward = search(beliefTakeAction(belief, action), nodeTakeAction(node, action))
+    reward = -1 * search(beliefTakeAction(belief, action), nodeTakeAction(node, action))
     
     belief.actionVisits[action] += 1
     
@@ -406,16 +423,27 @@ def search(belief, node):
 def selection(belief, node):
     
     if node.isPlayerNode():
-        action = nodeRewardEstimation(node, belief, action)
+        action = maxNodeRewardEstimation(node,belief)
         
     else:
-        action = rouleteWheelSelection(beliefs)
+        action = rouleteWheelSelection(node.beliefs)
+        
+    return action
 
+def maxNodeRewardEstimation(node, belief):
+    choices_weights = []
+    actions = belief.actions()
+    for action in actions:
+        reward = nodeRewardEstimation(node, action)
 
-def nodeRewardEstimation(node,belief,action):
+        choices_weights.append(reward)
+   
+    return actions[np.argmax(choices_weights)]
+
+def nodeRewardEstimation(node,action):
     exploration = 0.7
-    U = NodeReward(node) 
-    lnN = math.log(node._number_of_visits)
+    U = actionReward(node,action) 
+    lnN = math.log(node.visits)
     NBa = actionVisits(node, action)
     return U + exploration * math.sqrt(lnN / NBa)
 
@@ -437,8 +465,12 @@ class Belief():
        self.probability = probability
        self.actionVisits = {}
        self.actionRewards = {}
+       
       
-    
+    def __repr__(self):
+        info = " Belief - Board: " + self.board.fen() + " probability: " + str(self.probability) + " visits: " + str(self.visits) + " reward: " + str(self.reward)
+        return info
+
     def simulate(self):
 
         simulation_number = 1
@@ -477,6 +509,7 @@ class Belief():
     def singleRandomSim(self, board):
         #print("random sim")
         new_board = board.copy()
+        color = new_board.turn
         while (not self.is_game_over(new_board)):
             enemy_king_square = new_board.king(not new_board.turn)
 
@@ -496,7 +529,7 @@ class Belief():
 
             new_board.push(best_move)
 
-        return self.game_result(new_board, self.color)
+        return self.game_result(new_board, color)
 
     
     
@@ -520,10 +553,13 @@ class Belief():
         new_board.push(action)
         return new_board
     
+    def actions(self):
+        return self.get_legal_actions(self.board)
+    
 
 
 def beliefTakeAction(belief, action):
-    new_state = belief.state.copy()
+    new_state = belief.board.copy()
     new_state.push(action)
     
     return Belief(new_state, belief.probability)
