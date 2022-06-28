@@ -225,6 +225,8 @@ class BSMCTSNode():
         
         self.playerColor = playerColor
         
+        self.actions = []
+        
         if self.root_node:
             self.playerColor = self.color
         
@@ -238,6 +240,11 @@ class BSMCTSNode():
     
     def generateBelief(self):
         belief = random.sample(self.beliefState, 1)[0]
+        
+        if belief not in self.children:
+            for action in belief.get_legal_actions(belief.board):
+                if action not in self.actions:
+                    self.actions.append(action) 
         #print(belief)
         return belief
     
@@ -261,17 +268,18 @@ def nodeTakeAction(node, action):
 
 def maxRewardAction(node):
     choices_weights = []
-    for c in node.children:
-        reward = NodeReward(c)
+    for action in node.actions:
+        reward = actionReward(node, action)
 
         choices_weights.append(reward)
-   
-    return node.children[np.argmax(choices_weights).parent_action]
+    print(choices_weights)
+    return node.actions[np.argmax(choices_weights)]
 
 def actionVisits(node, action):
     visits = 0
     for belief in node.beliefs:
-        visits += belief.actionVisits[action]
+        if action in belief.actionVisits.keys():
+            visits += belief.actionVisits[action]
         
     return visits
 
@@ -279,7 +287,8 @@ def actionVisits(node, action):
 def actionReward(node, action):
     reward = 0
     for belief in node.beliefs:
-        reward += belief.actionRewards[action]
+        if action in belief.actionRewards.keys():
+            reward += belief.actionRewards[action]
         
     return reward
          
@@ -306,11 +315,9 @@ def BSMCTS(root_node, max_samples, max_iterations):
     t = 1
     while (t < max_samples):
         belief = sampling(root_node)
-        print("1" + str(belief))
         s = 1
         
         while (s < max_iterations):
-            print("2" + str(belief))
             reward = search(belief, root_node)
             belief.visits += 1
             s += 1
@@ -390,14 +397,15 @@ N (γ ,a) [R − U(γ, a)]
 """
 
 def search(belief, node):
-    print("3" + str(belief))
+    print(str(belief))
     if (node.visits == 0):
+        node.visits += 1
         reward = belief.simulate()
         return reward
     
     if (node.children == []):
         expansion(belief, node)
-        
+    node.visits += 1    
     belief.visits += 1
     action = selection(belief, node)
     reward = -1 * search(beliefTakeAction(belief, action), nodeTakeAction(node, action))
@@ -406,7 +414,7 @@ def search(belief, node):
     
     #Iterative Backpropogation
     belief.actionRewards[action] += (1/belief.actionVisits[action]) * (reward - belief.actionRewards[action])
-    
+    print(belief.actionRewards[action])
     return reward
 
 """
