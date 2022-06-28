@@ -172,21 +172,30 @@ class BeliefBot():
         x = self.belief_state.copy()
         root_node = BSMCTSNode(root_node = True, color = self.color, beliefState = x)
         try:
-            z = BSMCTS(root_node, 100, 5)
-            print(z)
-            return z
+            actions, weights = BSMCTS(root_node, 100, 5)
+            
         except IndexError:
             
             print("Index Error - Random Move")
             return random.choice(move_actions + [None])
         
+        move_choice = actions[np.argmax(weights)]
         if move_choice in move_actions:
             print("Movement MCTS successful")
             return move_choice
-
         else:
-            print("Random move")
-            return random.choice(move_actions + [None])
+            i = -2
+            x = -1 * len(weights)
+            while(i > x):
+                #print(i)
+                move_choice = actions[np.argpartition(weights, -1)[i]]
+                if move_choice in move_actions:
+                    print("Backup MCTS successful after " + str(-1 * i) + " tries")
+                    return move_choice
+                i -= 1
+        
+        print("Random move")
+        return random.choice(move_actions + [None])
         
 
     def handle_move_result(self, requested_move: Optional[chess.Move], taken_move: Optional[chess.Move],
@@ -429,7 +438,7 @@ def nodeTakeAction(node, action):
     return BSMCTSNode(new_beliefs, node, action, False, new_color, node.playerColor)
 
 
-def maxRewardAction(node):
+def maxRewardAction(node, backup = False):
     choices_weights = []
     for action in node.actions:
         reward = actionReward(node, action)
@@ -437,7 +446,11 @@ def maxRewardAction(node):
         choices_weights.append(reward)
     print(node.actions)
     print(choices_weights)
-    return node.actions[np.argmax(choices_weights)]
+    
+    if backup:
+        return node.actions, choices_weights
+    else:
+        return node.actions[np.argmax(choices_weights)]
 
 def actionVisits(node, action):
     visits = 0
@@ -489,9 +502,9 @@ def BSMCTS(root_node, max_samples, max_iterations):
         t += 1
     
     
-    action = maxRewardAction(root_node)
+    actions, weights = maxRewardAction(root_node, backup = True)
     
-    return action
+    return actions, weights
     
 
 """
