@@ -413,7 +413,7 @@ class BSMCTSNode():
     def generateBelief(self):
         belief = random.sample(self.beliefState, 1)[0]
         
-        if belief not in self.children:
+        if belief not in self.beliefs:
             for action in belief.get_legal_actions(belief.board):
                 if action not in self.actions:
                     self.actions.append(action) 
@@ -667,7 +667,7 @@ class Belief():
     
     
     
-    def old_simulate(self):
+    def simulate(self):
 
         simulation_number = 1
 
@@ -728,7 +728,7 @@ class Belief():
         return self.game_result(new_board, color)
 
  
-    def simulate(self):
+    def new_simulate(self):
         
         board = self.board
         new_board = board.copy()

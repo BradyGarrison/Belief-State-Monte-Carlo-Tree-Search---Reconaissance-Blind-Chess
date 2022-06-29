@@ -14,4 +14,8 @@ root_node = BSMCTSNode(root_node = True, color = True, beliefState = x)
 
 z = BSMCTS(root_node, 100, 5)
 
-print(z)
+actions, weights = z
+
+move_choice = actions[np.argmax(weights)]
+
+print(move_choice)
