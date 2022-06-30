@@ -150,7 +150,9 @@ class BeliefBot():
         else:
             self.need_new_boards = True
             #print("opponent move predict back on")
-        print("expanded belief state: " + str(len(self.belief_state)))   
+        print("expanded belief state: " + str(len(self.belief_state)))
+        print("belief state color wrong?:" + str(self.belief_state_color_check(self.belief_state, self.color)))
+        self.belief_state_color_numbers(self.belief_state, self.color)
         #print("now narrowing down")
         for belief in self.belief_state:
             board = belief.board
@@ -236,6 +238,33 @@ class BeliefBot():
                         game_history: GameHistory):
         pass
     
+    
+    def board_set_color_check(self,board_set, color):
+        for board in board_set:
+            if board.turn != color:
+                return False
+            
+        return True
+        
+        
+    def belief_state_color_check(self, belief_state, color):
+        for belief in belief_state:
+            if belief.board.turn != color:
+                return False
+            
+        return True
+    
+    def belief_state_color_numbers(self, belief_state, color):
+        right_color = 0
+        wrong_color = 0
+        for belief in belief_state:
+            if belief.board.turn == color:
+                right_color += 1
+                
+            else:
+                wrong_color +=1
+            
+        print("Right color: " + str(right_color) + " Wrong color: " + str(wrong_color))
         
     def MHT_handle_opponent_move_result(self, captured_my_piece: bool, capture_square: Optional[Square]):
         
@@ -343,7 +372,7 @@ class BeliefBot():
         else:
             self.need_new_boards = True
             #print("opponent move predict back on")
-            
+        print("board set color wrong?:" + str(self.board_set_color_check(self.board_set, self.color)))    
         #print("now narrowing down")
         for board in self.board_set:
             possible = True
@@ -607,7 +636,7 @@ N (γ ,a) [R − U(γ, a)]
 """
 
 def search(belief, node):
-    print(str(belief))
+    #print(str(belief))
     if (node.visits == 0):
         node.visits += 1
         reward = belief.simulate()
