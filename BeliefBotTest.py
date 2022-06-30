@@ -137,6 +137,9 @@ class BeliefBot():
         print("initial belief state: " + str(len(self.belief_state)))
         new_belief_state = self.belief_state.copy()
         if self.need_new_boards:
+            for belief in new_belief_state:
+                belief.board.turn = not belief.board.turn
+            
             #print("predicting opponent moves")
             for belief in self.belief_state:
                 board = belief.board
@@ -359,6 +362,8 @@ class BeliefBot():
         print("MHT SENSE RESULT")  
         new_board_set = self.board_set.copy()
         if self.need_new_boards:
+            for board in new_board_set:
+                board.turn = not board.turn
             #print("predicting opponent moves")
             for board in self.board_set:
                 opponent_moves = self.possibleMoves(board, self.opponent_color)
