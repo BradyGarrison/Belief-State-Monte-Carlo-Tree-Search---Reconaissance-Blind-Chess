@@ -80,20 +80,20 @@ class BeliefBot():
         
        
     def handle_opponent_move_result(self, captured_my_piece: bool, capture_square: Optional[Square]):
+        self.MHT_handle_opponent_move_result(captured_my_piece, capture_square)
         
         self.my_piece_captured_square = capture_square
         if captured_my_piece:
             new_belief_state = self.belief_state.copy()
             for belief in self.belief_state:
                 board = belief.board
-                new_belief_state.remove(board)
+                new_belief_state.remove(belief)
                 square_attackers = board.attackers(self.opponent_color, self.my_piece_captured_square)
 
                 while square_attackers:
-                    new_board = board.copy()
                     attacker_square = square_attackers.pop()
-                    new_board.push(chess.Move(attacker_square, self.my_piece_captured_square))
-                    new_belief_state.append(new_board)
+                    new_belief = beliefTakeAction(belief, chess.Move(attacker_square, self.my_piece_captured_square))
+                    new_belief_state.append(new_belief)
                
             print("new boards: " + str(len(new_belief_state)))
             
@@ -134,6 +134,7 @@ class BeliefBot():
         self.MHT_handle_sense_result(sense_result)
         
         print("BSMCTS handle sense result")
+        print("initial belief state: " + str(len(self.belief_state)))
         new_belief_state = self.belief_state.copy()
         if self.need_new_boards:
             #print("predicting opponent moves")
@@ -149,7 +150,7 @@ class BeliefBot():
         else:
             self.need_new_boards = True
             #print("opponent move predict back on")
-            
+        print("expanded belief state: " + str(len(self.belief_state)))   
         #print("now narrowing down")
         for belief in self.belief_state:
             board = belief.board
@@ -161,7 +162,17 @@ class BeliefBot():
                 new_belief_state.remove(belief)
                 
         
-        #print("narrow down boards: " + str(len(new_belief_state)))
+        print("narrow down belief state: " + str(len(new_belief_state)))
+        
+        
+        if len(new_belief_state) <= 500:
+            self.belief_state = new_belief_state
+                
+        else:
+            #print("narrowed down")
+            self.belief_state = random.sample(new_belief_state,500)
+            
+        print("narrow down boards: " + str(len(self.belief_state)))
         
         normalize(self.belief_state)
         
@@ -224,8 +235,30 @@ class BeliefBot():
     def handle_game_end(self, winner_color: Optional[Color], win_reason: Optional[WinReason],
                         game_history: GameHistory):
         pass
-        
     
+        
+    def MHT_handle_opponent_move_result(self, captured_my_piece: bool, capture_square: Optional[Square]):
+        
+        #print("")
+        self.my_piece_captured_square = capture_square
+        if captured_my_piece:
+            print("PIECE CAPTURED!")
+            print("original boards: " + str(len(self.board_set)))
+            new_board_set = self.board_set.copy()
+            for board in self.board_set:
+                new_board_set.remove(board)
+                square_attackers = board.attackers(self.opponent_color, self.my_piece_captured_square)
+
+                while square_attackers:
+                    new_board = board.copy()
+                    attacker_square = square_attackers.pop()
+                    new_board.push(chess.Move(attacker_square, self.my_piece_captured_square))
+                    new_board_set.append(new_board)
+               
+            print("new boards: " + str(len(new_board_set)))
+            self.board_set = new_board_set
+            self.need_new_boards = False
+            print("opponent move predict off")
     
     def MHT_handle_move_result(self, requested_move: Optional[chess.Move], taken_move: Optional[chess.Move],
                            captured_opponent_piece: bool, capture_square: Optional[Square]):
