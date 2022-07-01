@@ -44,6 +44,7 @@ class BeliefBot():
         self.belief_state = []
         self.board_set = []
         self.my_piece_captured_square = None
+        self.need_new_beliefs = True
         self.need_new_boards = True
         self.sense_dict = {0:9,1:9,2:10,3:11,4:12,5:13,6:14,7:14,8:9,15:14,16:17,23:22,24:25,31:30,32:33,39:38,40:41,47:46,48:49,55:54,56:49,57:49,58:50,59:51,60:52,61:53,62:54,63:54}
         self.piece_scores = {'P':1, 'N':3, 'B':3, 'R':5, 'Q':9, 'K':9}
@@ -68,8 +69,10 @@ class BeliefBot():
         
 
     def possibleMoves(self, board, color):
-        board.turn = color
-        return list(board.pseudo_legal_moves)
+        new_board = board.copy()
+        new_board.turn = color
+        return list(new_board.pseudo_legal_moves)
+        
     
     def handle_game_start(self, color: Color, board: chess.Board, opponent_name: str):
         self.belief_state.append(Belief(board,1))
@@ -99,7 +102,7 @@ class BeliefBot():
             
             normalize(new_belief_state)
             self.belief_state = new_belief_state
-            self.need_new_boards = False
+            self.need_new_beliefs = False
             print("opponent move predict off")
         
 
@@ -130,45 +133,46 @@ class BeliefBot():
 
     def handle_sense_result(self, sense_result: List[Tuple[Square, Optional[chess.Piece]]]):
         
-        x = self.first_turn and self.color
-        print(x)
-        
-        self.MHT_handle_sense_result(sense_result)
-        
         if self.first_turn and self.color:
-            self.need_new_boards = False
-        
-        print("BSMCTS handle sense result")
-        print("initial belief state: " + str(len(self.belief_state)))
-        
-        
-        new_belief_state = []
-        if self.need_new_boards:
-            
-            print("belief state predicting opponent moves")
-            for belief in self.belief_state:
-                board = belief.board
-                opponent_moves = self.possibleMoves(board, self.opponent_color)
-                for move in opponent_moves:
-                    newbelief = beliefTakeAction(belief, move)
-                    new_belief_state.append(newbelief)
-                
-            self.belief_state = new_belief_state.copy()
-            
-        else:
-            self.need_new_boards = True
-            #print("opponent move predict back on")
-            
-            
-        print("expanded belief state: " + str(len(self.belief_state)))
-        print("belief state color correct?:" + str(self.belief_state_color_check(self.belief_state, self.color)))
-        self.belief_state_color_numbers(self.belief_state, self.color)
-        #print("now narrowing down")
-        
-        if self.first_turn and self.color:
+            print("WHITE FIRST TURN SENSE HANDLE EXCEPTION")
             self.first_turn = False
-            
+        
         else:
+            self.MHT_handle_sense_result(sense_result)
+            
+            print("BSMCTS handle sense result")
+            print("initial belief state: " + str(len(self.belief_state)))
+            new_belief_state = self.belief_state.copy()
+            if self.need_new_beliefs:
+                for belief in self.belief_state:
+                    belief.board.turn = self.opponent_color
+                    print(belief.board)
+                    print(belief.board.turn)
+                    
+                for belief in new_belief_state:
+                    belief.board.turn = self.color
+                    print(belief.board)
+                    print(belief.board.turn)
+    
+                #print("predicting opponent moves")
+                for belief in self.belief_state:
+                    board = belief.board
+                    opponent_moves = self.possibleMoves(board, self.opponent_color)
+                    for move in opponent_moves:
+                        newbelief = beliefTakeAction(belief, move)
+                        new_belief_state.append(newbelief)
+                        print(newbelief.board)
+                        print(newbelief.board.turn)
+                    
+                self.belief_state = new_belief_state.copy()
+                
+            else:
+                self.need_new_beliefs = True
+                #print("opponent move predict back on")
+            print("expanded belief state: " + str(len(self.belief_state)))
+            print("belief state color correct?:" + str(self.belief_state_color_check(self.belief_state, self.color)))
+            self.belief_state_color_numbers(self.belief_state, self.color)
+            #print("now narrowing down")
             for belief in self.belief_state:
                 board = belief.board
                 possible = True
@@ -210,6 +214,7 @@ class BeliefBot():
         move_choice = actions[np.argmax(weights)]
         if move_choice in move_actions:
             print("Movement MCTS successful")
+            print(move_choice)
             return move_choice
         else:
             i = -2
@@ -219,6 +224,7 @@ class BeliefBot():
                 move_choice = actions[np.argpartition(weights, -1)[i]]
                 if move_choice in move_actions:
                     print("Backup MCTS successful after " + str(-1 * i) + " tries")
+                    print(move_choice)
                     return move_choice
                 i -= 1
         
@@ -260,6 +266,19 @@ class BeliefBot():
                 return False
             
         return True
+    
+    
+    def board_set_color_numbers(self, board_set, color):
+        right_color = 0
+        wrong_color = 0
+        for board in board_set:
+            if board.turn == color:
+                right_color += 1
+                
+            else:
+                wrong_color +=1
+            
+        print("Right color: " + str(right_color) + " Wrong color: " + str(wrong_color))
         
         
     def belief_state_color_check(self, belief_state, color):
@@ -369,16 +388,14 @@ class BeliefBot():
         return sense_choice
         
 
+        
     def MHT_handle_sense_result(self, sense_result: List[Tuple[Square, Optional[chess.Piece]]]):
         
-        print("MHT SENSE RESULT")
-        if self.first_turn and self.color:
-            self.need_new_boards = False
-        
-        
-        new_board_set = []
+        print("MHT SENSE RESULT")  
+        new_board_set = self.board_set.copy()
         if self.need_new_boards:
-            
+            #for board in new_board_set:
+            #    board.turn = not board.turn
             #print("predicting opponent moves")
             for board in self.board_set:
                 opponent_moves = self.possibleMoves(board, self.opponent_color)
@@ -392,7 +409,8 @@ class BeliefBot():
         else:
             self.need_new_boards = True
             #print("opponent move predict back on")
-        print("board set color correct?:" + str(self.board_set_color_check(self.board_set, self.color)))    
+        print("board set color correct?:" + str(self.board_set_color_check(self.board_set, self.color)))
+        self.board_set_color_numbers(self.board_set, self.color)
         #print("now narrowing down")
         for board in self.board_set:
             possible = True
@@ -404,61 +422,59 @@ class BeliefBot():
                 
         
         #print("narrow down boards: " + str(len(new_board_set)))
-        x = self.first_turn and self.color
-        if not x:
-            if len(new_board_set) <= 200:
-                self.board_set = new_board_set
-    
-            else:
-                syzygy_check = True
+        
+        
+        if len(new_board_set) <= 200:
+            self.board_set = new_board_set
+        else:
+            syzygy_check = True
+            for board in new_board_set:
+                if len(board.piece_map()) > 5:
+                    syzygy_check = False
+                    break
+            
+            if syzygy_check:
+                #print("syzygy")
+                wdl_set = []
                 for board in new_board_set:
-                    if len(board.piece_map()) > 5:
-                        syzygy_check = False
-                        break
-                
-                if syzygy_check:
-                    #print("syzygy")
-                    wdl_set = []
-                    for board in new_board_set:
-                        wdl_set.append(self.tablebase.probe_wdl(board))
-                        
-                    mode_wdl = random.choice(mode(wdl_set))
+                    wdl_set.append(self.tablebase.probe_wdl(board))
                     
-                    dtz_set = []
-                    if mode_wdl > 0:
-                        for board in new_board_set:
-                            evaluation = self.tablebase.probe_dtz(board)
-                            if evaluation <= 0:
-                                evaluation = 200
-                            dtz_set.append([board, evaluation])
-                        sorted_dtz_set = sorted(dtz_set, key=operator.itemgetter(1))
-                        final_dtz_set = sorted_dtz_set[0:50]
-                        
-                        final_board_set = []
-                        for item in final_dtz_set:
-                            final_board_set.append(item[0])
-                        
-                        self.board_set = final_board_set
-                        
-                    else:
-                        for board in new_board_set:
-                            evaluation = self.tablebase.probe_dtz(board)
-                            if evaluation == 0:
-                                 evaluation = 178
-                            dtz_set.append([board, evaluation])
-                        sorted_dtz_set = sorted(dtz_set, key=operator.itemgetter(1), reverse = True)
-                        final_dtz_set = sorted_dtz_set[0:50]
-                        
-                        final_board_set = []
-                        for item in final_dtz_set:
-                            final_board_set.append(item[0])
-                            
-                        self.board_set = final_board_set
+                mode_wdl = random.choice(mode(wdl_set))
+                
+                dtz_set = []
+                if mode_wdl > 0:
+                    for board in new_board_set:
+                        evaluation = self.tablebase.probe_dtz(board)
+                        if evaluation <= 0:
+                            evaluation = 200
+                        dtz_set.append([board, evaluation])
+                    sorted_dtz_set = sorted(dtz_set, key=operator.itemgetter(1))
+                    final_dtz_set = sorted_dtz_set[0:50]
+                    
+                    final_board_set = []
+                    for item in final_dtz_set:
+                        final_board_set.append(item[0])
+                    
+                    self.board_set = final_board_set
                     
                 else:
-                    #print("narrowed down")
-                    self.board_set = random.sample(new_board_set,200)
-
+                    for board in new_board_set:
+                        evaluation = self.tablebase.probe_dtz(board)
+                        if evaluation == 0:
+                             evaluation = 178
+                        dtz_set.append([board, evaluation])
+                    sorted_dtz_set = sorted(dtz_set, key=operator.itemgetter(1), reverse = True)
+                    final_dtz_set = sorted_dtz_set[0:50]
+                    
+                    final_board_set = []
+                    for item in final_dtz_set:
+                        final_board_set.append(item[0])
+                        
+                    self.board_set = final_board_set
+                
+            else:
+                #print("narrowed down")
+                self.board_set = random.sample(new_board_set,200)
             
         print("possible boards: " + str(len(self.board_set)))
 
@@ -526,8 +542,8 @@ def maxRewardAction(node, backup = False):
         reward = actionReward(node, action)
 
         choices_weights.append(reward)
-    print(node.actions)
-    print(choices_weights)
+    #print(node.actions)
+    #print(choices_weights)
     
     if backup:
         return node.actions, choices_weights
