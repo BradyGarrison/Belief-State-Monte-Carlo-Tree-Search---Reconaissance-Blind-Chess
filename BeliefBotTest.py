@@ -130,17 +130,22 @@ class BeliefBot():
 
     def handle_sense_result(self, sense_result: List[Tuple[Square, Optional[chess.Piece]]]):
         
+        x = self.first_turn and self.color
+        print(x)
         
         self.MHT_handle_sense_result(sense_result)
         
+        if self.first_turn and self.color:
+            self.need_new_boards = False
+        
         print("BSMCTS handle sense result")
         print("initial belief state: " + str(len(self.belief_state)))
-        new_belief_state = self.belief_state.copy()
+        
+        
+        new_belief_state = []
         if self.need_new_boards:
-            for belief in new_belief_state:
-                belief.board.turn = not belief.board.turn
             
-            #print("predicting opponent moves")
+            print("belief state predicting opponent moves")
             for belief in self.belief_state:
                 board = belief.board
                 opponent_moves = self.possibleMoves(board, self.opponent_color)
@@ -153,33 +158,40 @@ class BeliefBot():
         else:
             self.need_new_boards = True
             #print("opponent move predict back on")
+            
+            
         print("expanded belief state: " + str(len(self.belief_state)))
-        print("belief state color wrong?:" + str(self.belief_state_color_check(self.belief_state, self.color)))
+        print("belief state color correct?:" + str(self.belief_state_color_check(self.belief_state, self.color)))
         self.belief_state_color_numbers(self.belief_state, self.color)
         #print("now narrowing down")
-        for belief in self.belief_state:
-            board = belief.board
-            possible = True
-            for square, piece in sense_result:
-                if board.piece_at(square) != piece:
-                    possible = False
-            if not possible:
-                new_belief_state.remove(belief)
-                
         
-        print("narrow down belief state: " + str(len(new_belief_state)))
-        
-        
-        if len(new_belief_state) <= 500:
-            self.belief_state = new_belief_state
-                
-        else:
-            #print("narrowed down")
-            self.belief_state = random.sample(new_belief_state,500)
+        if self.first_turn and self.color:
+            self.first_turn = False
             
-        print("narrow down boards: " + str(len(self.belief_state)))
-        
-        normalize(self.belief_state)
+        else:
+            for belief in self.belief_state:
+                board = belief.board
+                possible = True
+                for square, piece in sense_result:
+                    if board.piece_at(square) != piece:
+                        possible = False
+                if not possible:
+                    new_belief_state.remove(belief)
+                    
+            
+            print("narrow down belief state: " + str(len(new_belief_state)))
+            
+            
+            if len(new_belief_state) <= 500:
+                self.belief_state = new_belief_state
+                    
+            else:
+                #print("narrowed down")
+                self.belief_state = random.sample(new_belief_state,500)
+                
+            print("narrow down boards: " + str(len(self.belief_state)))
+            
+            normalize(self.belief_state)
         
         
         
@@ -359,11 +371,14 @@ class BeliefBot():
 
     def MHT_handle_sense_result(self, sense_result: List[Tuple[Square, Optional[chess.Piece]]]):
         
-        print("MHT SENSE RESULT")  
-        new_board_set = self.board_set.copy()
+        print("MHT SENSE RESULT")
+        if self.first_turn and self.color:
+            self.need_new_boards = False
+        
+        
+        new_board_set = []
         if self.need_new_boards:
-            for board in new_board_set:
-                board.turn = not board.turn
+            
             #print("predicting opponent moves")
             for board in self.board_set:
                 opponent_moves = self.possibleMoves(board, self.opponent_color)
@@ -377,7 +392,7 @@ class BeliefBot():
         else:
             self.need_new_boards = True
             #print("opponent move predict back on")
-        print("board set color wrong?:" + str(self.board_set_color_check(self.board_set, self.color)))    
+        print("board set color correct?:" + str(self.board_set_color_check(self.board_set, self.color)))    
         #print("now narrowing down")
         for board in self.board_set:
             possible = True
@@ -389,60 +404,60 @@ class BeliefBot():
                 
         
         #print("narrow down boards: " + str(len(new_board_set)))
-        
-        
-        if len(new_board_set) <= 200:
-            self.board_set = new_board_set
-
-        else:
-            syzygy_check = True
-            for board in new_board_set:
-                if len(board.piece_map()) > 5:
-                    syzygy_check = False
-                    break
-            
-            if syzygy_check:
-                #print("syzygy")
-                wdl_set = []
+        x = self.first_turn and self.color
+        if not x:
+            if len(new_board_set) <= 200:
+                self.board_set = new_board_set
+    
+            else:
+                syzygy_check = True
                 for board in new_board_set:
-                    wdl_set.append(self.tablebase.probe_wdl(board))
-                    
-                mode_wdl = random.choice(mode(wdl_set))
+                    if len(board.piece_map()) > 5:
+                        syzygy_check = False
+                        break
                 
-                dtz_set = []
-                if mode_wdl > 0:
+                if syzygy_check:
+                    #print("syzygy")
+                    wdl_set = []
                     for board in new_board_set:
-                        evaluation = self.tablebase.probe_dtz(board)
-                        if evaluation <= 0:
-                            evaluation = 200
-                        dtz_set.append([board, evaluation])
-                    sorted_dtz_set = sorted(dtz_set, key=operator.itemgetter(1))
-                    final_dtz_set = sorted_dtz_set[0:50]
+                        wdl_set.append(self.tablebase.probe_wdl(board))
+                        
+                    mode_wdl = random.choice(mode(wdl_set))
                     
-                    final_board_set = []
-                    for item in final_dtz_set:
-                        final_board_set.append(item[0])
-                    
-                    self.board_set = final_board_set
+                    dtz_set = []
+                    if mode_wdl > 0:
+                        for board in new_board_set:
+                            evaluation = self.tablebase.probe_dtz(board)
+                            if evaluation <= 0:
+                                evaluation = 200
+                            dtz_set.append([board, evaluation])
+                        sorted_dtz_set = sorted(dtz_set, key=operator.itemgetter(1))
+                        final_dtz_set = sorted_dtz_set[0:50]
+                        
+                        final_board_set = []
+                        for item in final_dtz_set:
+                            final_board_set.append(item[0])
+                        
+                        self.board_set = final_board_set
+                        
+                    else:
+                        for board in new_board_set:
+                            evaluation = self.tablebase.probe_dtz(board)
+                            if evaluation == 0:
+                                 evaluation = 178
+                            dtz_set.append([board, evaluation])
+                        sorted_dtz_set = sorted(dtz_set, key=operator.itemgetter(1), reverse = True)
+                        final_dtz_set = sorted_dtz_set[0:50]
+                        
+                        final_board_set = []
+                        for item in final_dtz_set:
+                            final_board_set.append(item[0])
+                            
+                        self.board_set = final_board_set
                     
                 else:
-                    for board in new_board_set:
-                        evaluation = self.tablebase.probe_dtz(board)
-                        if evaluation == 0:
-                             evaluation = 178
-                        dtz_set.append([board, evaluation])
-                    sorted_dtz_set = sorted(dtz_set, key=operator.itemgetter(1), reverse = True)
-                    final_dtz_set = sorted_dtz_set[0:50]
-                    
-                    final_board_set = []
-                    for item in final_dtz_set:
-                        final_board_set.append(item[0])
-                        
-                    self.board_set = final_board_set
-                
-            else:
-                #print("narrowed down")
-                self.board_set = random.sample(new_board_set,200)
+                    #print("narrowed down")
+                    self.board_set = random.sample(new_board_set,200)
 
             
         print("possible boards: " + str(len(self.board_set)))
