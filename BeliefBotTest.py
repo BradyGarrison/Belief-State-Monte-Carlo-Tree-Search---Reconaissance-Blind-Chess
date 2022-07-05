@@ -69,11 +69,11 @@ class BeliefBot():
         
 
     def possibleMoves(self, board, color):
-        #new_board = board.copy()
-        #new_board.turn = color
-        #return list(new_board.pseudo_legal_moves)
-        board.turn = color
-        return list(board.pseudo_legal_moves)
+        new_board = board.copy()
+        new_board.turn = color
+        return list(new_board.pseudo_legal_moves)
+        #board.turn = color
+        #return list(board.pseudo_legal_moves)
     
     def handle_game_start(self, color: Color, board: chess.Board, opponent_name: str):
         self.belief_state.append(Belief(board,1))
@@ -145,13 +145,10 @@ class BeliefBot():
             print("initial belief state: " + str(len(self.belief_state)))
             new_belief_state = self.belief_state.copy()
             if self.need_new_beliefs:
-                #for belief in self.belief_state:
-                    #belief.board.turn = self.opponent_color
-                   # print(belief.board)
-                    #print(belief.board.turn)
+                
                     
-                #for belief in new_belief_state:
-                    #belief.board.turn = self.color
+                for belief in new_belief_state:
+                    belief.board.turn = self.opponent_color
                     #print(belief.board)
                     #print(belief.board.turn)
     
@@ -162,8 +159,13 @@ class BeliefBot():
                     for move in opponent_moves:
                         newbelief = beliefTakeAction(belief, move)
                         new_belief_state.append(newbelief)
-                        print(newbelief.board)
-                        print(newbelief.board.turn)
+                        #print(newbelief.board)
+                        #print(newbelief.board.turn)
+                        
+                for belief in self.belief_state:
+                    belief.board.turn = self.color
+                   # print(belief.board)
+                    #print(belief.board.turn)
                     
                 self.belief_state = new_belief_state.copy()
                 
@@ -194,7 +196,7 @@ class BeliefBot():
                 #print("narrowed down")
                 self.belief_state = random.sample(new_belief_state,500)
                 
-            print("narrow down boards: " + str(len(self.belief_state)))
+            print("sampled belief state: " + str(len(self.belief_state)))
             
             normalize(self.belief_state)
         
@@ -395,15 +397,19 @@ class BeliefBot():
         print("MHT SENSE RESULT")  
         new_board_set = self.board_set.copy()
         if self.need_new_boards:
-            #for board in new_board_set:
-            #    board.turn = not board.turn
-            #print("predicting opponent moves")
+            
+            for board in new_board_set:
+                board.turn = self.opponent_color
+                
             for board in self.board_set:
                 opponent_moves = self.possibleMoves(board, self.opponent_color)
                 for move in opponent_moves:
                     newboard = board.copy()
                     newboard.push(move)
                     new_board_set.append(newboard)
+                    
+            for board in new_board_set:
+                board.turn = self.color
                 
             self.board_set = new_board_set.copy()
             
