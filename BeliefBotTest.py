@@ -690,7 +690,7 @@ def search(belief, node):
     node.visits += 1    
     belief.visits += 1
     action = selection(belief, node)
-    reward = -1 * search(beliefTakeAction(belief, action), nodeTakeAction(node, action))
+    reward = 1 * search(beliefTakeAction(belief, action), nodeTakeAction(node, action))
     
     if action in belief.actionVisits.keys():
         belief.actionVisits[action] += 1
