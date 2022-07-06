@@ -781,10 +781,6 @@ class Belief():
         new_board = self.board.copy()
         new_board.clear_stack()
         
-        x = self.singleRandomSim(new_board)
-        #print(x)
-        return x
-        """
         
         enemy_king_square = new_board.king(not new_board.turn)
         my_king_square = new_board.king(new_board.turn)
@@ -811,7 +807,7 @@ class Belief():
             x = self.singleRandomSim(new_board)
             #print(x)
             return x
-        """
+        
             
     
     def singleRandomSim(self, board):
