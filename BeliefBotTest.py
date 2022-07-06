@@ -772,7 +772,7 @@ class Belief():
     
     
     
-    def simulate(self):
+    def old_simulate(self):
 
         simulation_number = 1
 
@@ -836,7 +836,7 @@ class Belief():
         return self.game_result(new_board, color)
 
  
-    def new_simulate(self):
+    def simulate(self):
         
         board = self.board
         new_board = board.copy()
