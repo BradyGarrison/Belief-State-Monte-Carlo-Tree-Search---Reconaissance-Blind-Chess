@@ -1,3 +1,5 @@
+# Played as v45
+
 import chess
 import chess.engine
 import chess.syzygy
@@ -33,7 +35,7 @@ def normalize(belief_state):
         
 
 
-class BeliefBot():
+class BeliefBot(Player):
     
 
     def __init__(self):
@@ -204,10 +206,15 @@ class BeliefBot():
         
     def choose_move(self, move_actions: List[chess.Move], seconds_left: float) -> Optional[chess.Move]:
         print("BS-MCTS choose move")
+        
+        
+        if len(self.belief_state) == 0:
+            return random.choice(move_actions + [None])
+        
         x = self.belief_state.copy()
         root_node = BSMCTSNode(root_node = True, color = self.color, beliefState = x)
         try:
-            actions, weights = BSMCTS(root_node, 100, 5)
+            actions, weights = BSMCTS(root_node, 30, 20)
             
         except IndexError:
             
@@ -772,7 +779,7 @@ class Belief():
     
     
     
-    def old_simulate(self):
+    def simulate(self):
 
         simulation_number = 1
 
@@ -781,7 +788,11 @@ class Belief():
         new_board = self.board.copy()
         new_board.clear_stack()
         
+        x = self.singleRandomSim(new_board)
+        #print(x)
+        return x
         
+        """
         enemy_king_square = new_board.king(not new_board.turn)
         my_king_square = new_board.king(new_board.turn)
         try:
@@ -807,7 +818,7 @@ class Belief():
             x = self.singleRandomSim(new_board)
             #print(x)
             return x
-        
+        """
             
     
     def singleRandomSim(self, board):
@@ -836,7 +847,7 @@ class Belief():
         return self.game_result(new_board, color)
 
  
-    def simulate(self):
+    def new_simulate(self):
         
         board = self.board
         new_board = board.copy()
