@@ -209,7 +209,7 @@ class BeliefBot(Player):
         self.need_new_boards = True
         self.sense_dict = {0:9,1:9,2:10,3:11,4:12,5:13,6:14,7:14,8:9,15:14,16:17,23:22,24:25,31:30,32:33,39:38,40:41,47:46,48:49,55:54,56:49,57:49,58:50,59:51,60:52,61:53,62:54,63:54}
         self.piece_scores = {'P':1, 'N':3, 'B':3, 'R':5, 'Q':9, 'K':9}
-        self.random_sampling = True
+        self.random_sampling = False
         
         
         self.tablebase = chess.syzygy.open_tablebase(r"C:\Users\kimbe\Documents\Brady Stuff\NRL Stuff\Chess Tools\syzygy")
@@ -365,21 +365,17 @@ class BeliefBot(Player):
                     board = belief.board.copy()
                     belief_scores.append(self.evaluate_board(board, board.turn))
                 
-                #ordered_beliefs = [x for _,x in sorted(zip(belief_scores, new_belief_state))]
-                #ordered_beliefs.reverse()
-                #self.belief_state = ordered_beliefs[0:500]
                 
-                
-                self.belief_state = []
-                i = -1
-                x = -500
-                while(i > x):
-                    #print(i)
-                    highest_belief = new_belief_state[np.argpartition(belief_scores, -1)[i]]
-                    self.belief_state.append(highest_belief)
-                    i -= 1
-                
-                
+                A = new_belief_state
+                B = belief_scores
+                A = np.array(A)
+                B = np.array(B)
+                #print(len(A))
+                #print(len(B))
+                inds = B.argsort()
+                sorted_a = A[inds]
+                self.belief_state = list(sorted_a)
+                             
                 
                 
                 
@@ -682,19 +678,15 @@ class BeliefBot(Player):
                 for board in new_board_set:
                     board_scores.append(self.evaluate_board(board, board.turn))
                 
-                #ordered_beliefs = [x for _,x in sorted(zip(belief_scores, new_belief_state))]
-                #ordered_beliefs.reverse()
-                #self.belief_state = ordered_beliefs[0:500]
-                
-                
-                self.board_set = []
-                i = -1
-                x = -200
-                while(i > x):
-                    #print(i)
-                    highest_board = new_board_set[np.argpartition(board_scores, -1)[i]]
-                    self.belief_state.append(highest_board)
-                    i -= 1
+                A = new_board_set
+                B = board_scores
+                A = np.array(A)
+                B = np.array(B)
+                #print(len(A))
+                #print(len(B))
+                inds = B.argsort()
+                sorted_a = A[inds]
+                self.board_set = list(sorted_a)
             
         print("possible boards: " + str(len(self.board_set)))
 
