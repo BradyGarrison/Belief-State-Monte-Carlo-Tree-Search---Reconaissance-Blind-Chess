@@ -36,7 +36,166 @@ def normalize(belief_state):
 
 
 class BeliefBot(Player):
+    def evaluate_board(self, board, color):
+            
+            """
+            Checks if game has ended
+            """
+            if self.is_game_over(board):
+                if self.game_result(board,color) < 1:
+                    return -9999
+                else:
+                    return 9999
+            
+            """
+            Checks enemy king square
+            """
+            enemy_king_square = board.king(not color)
+            
+            try:
+                enemy_king_attackers = board.attackers(color, enemy_king_square)
+            except TypeError:
+                #print("Type Error Trapped")
+                enemy_king_attackers = False
+            
+            if enemy_king_attackers:
+                opponent_vulnerable = 5000
+                
+            else:
+                opponent_vulnerable = 0
+            
+            """
+            Checks my king square
+            """
+            my_king_square = board.king(color)
+            
+            try:
+                my_king_attackers = board.attackers(not color, my_king_square)
+            except TypeError:
+                #print("Type Error Trapped")
+                my_king_attackers = False
+            
+            if my_king_attackers:
+                #print("king being attacked!")
+                me_vulnerable = 4000
+                
+            else:
+                me_vulnerable = 0
+                
+            
+            
+            wp = len(board.pieces(chess.PAWN, chess.WHITE))
+            bp = len(board.pieces(chess.PAWN, chess.BLACK))
+            wn = len(board.pieces(chess.KNIGHT, chess.WHITE))
+            bn = len(board.pieces(chess.KNIGHT, chess.BLACK))
+            wb = len(board.pieces(chess.BISHOP, chess.WHITE))
+            bb = len(board.pieces(chess.BISHOP, chess.BLACK))
+            wr = len(board.pieces(chess.ROOK, chess.WHITE))
+            br = len(board.pieces(chess.ROOK, chess.BLACK))
+            wq = len(board.pieces(chess.QUEEN, chess.WHITE))
+            bq = len(board.pieces(chess.QUEEN, chess.BLACK))
+                
+            material = 100*(wp-bp)+320*(wn-bn)+330*(wb-bb)+500*(wr-br)+900*(wq-bq)
+            
+            
+            
+            pawntable = [
+             0,  0,  0,  0,  0,  0,  0,  0,
+             5, 10, 10,-20,-20, 10, 10,  5,
+             5, -5,-10,  0,  0,-10, -5,  5,
+             0,  0,  0, 20, 20,  0,  0,  0,
+             5,  5, 10, 25, 25, 10,  5,  5,
+            10, 10, 20, 30, 30, 20, 10, 10,
+            50, 50, 50, 50, 50, 50, 50, 50,
+             0,  0,  0,  0,  0,  0,  0,  0]
     
+            knightstable = [
+            -50,-40,-30,-30,-30,-30,-40,-50,
+            -40,-20,  0,  5,  5,  0,-20,-40,
+            -30,  5, 10, 15, 15, 10,  5,-30,
+            -30,  0, 15, 20, 20, 15,  0,-30,
+            -30,  5, 15, 20, 20, 15,  5,-30,
+            -30,  0, 10, 15, 15, 10,  0,-30,
+            -40,-20,  0,  0,  0,  0,-20,-40,
+            -50,-40,-30,-30,-30,-30,-40,-50]
+    
+            bishopstable = [
+            -20,-10,-10,-10,-10,-10,-10,-20,
+            -10,  5,  0,  0,  0,  0,  5,-10,
+            -10, 10, 10, 10, 10, 10, 10,-10,
+            -10,  0, 10, 10, 10, 10,  0,-10,
+            -10,  5,  5, 10, 10,  5,  5,-10,
+            -10,  0,  5, 10, 10,  5,  0,-10,
+            -10,  0,  0,  0,  0,  0,  0,-10,
+            -20,-10,-10,-10,-10,-10,-10,-20]
+    
+            rookstable = [
+              0,  0,  0,  5,  5,  0,  0,  0,
+             -5,  0,  0,  0,  0,  0,  0, -5,
+             -5,  0,  0,  0,  0,  0,  0, -5,
+             -5,  0,  0,  0,  0,  0,  0, -5,
+             -5,  0,  0,  0,  0,  0,  0, -5,
+             -5,  0,  0,  0,  0,  0,  0, -5,
+              5, 10, 10, 10, 10, 10, 10,  5,
+             0,  0,  0,  0,  0,  0,  0,  0]
+    
+            queenstable = [
+            -20,-10,-10, -5, -5,-10,-10,-20,
+            -10,  0,  0,  0,  0,  0,  0,-10,
+            -10,  5,  5,  5,  5,  5,  0,-10,
+              0,  0,  5,  5,  5,  5,  0, -5,
+             -5,  0,  5,  5,  5,  5,  0, -5,
+            -10,  0,  5,  5,  5,  5,  0,-10,
+            -10,  0,  0,  0,  0,  0,  0,-10,
+            -20,-10,-10, -5, -5,-10,-10,-20]
+    
+            kingstable = [
+             20, 30, 10,  0,  0, 10, 30, 20,
+             20, 20,  0,  0,  0,  0, 20, 20,
+            -10,-20,-20,-20,-20,-20,-20,-10,
+            -20,-30,-30,-40,-40,-30,-30,-20,
+            -30,-40,-40,-50,-50,-40,-40,-30,
+            -30,-40,-40,-50,-50,-40,-40,-30,
+            -30,-40,-40,-50,-50,-40,-40,-30,
+            -30,-40,-40,-50,-50,-40,-40,-30]
+            
+            
+            pawnsq = sum([pawntable[i] for i in board.pieces(chess.PAWN, chess.WHITE)])
+            pawnsq= pawnsq + sum([-pawntable[chess.square_mirror(i)] 
+                                            for i in board.pieces(chess.PAWN, chess.BLACK)])
+            knightsq = sum([knightstable[i] for i in board.pieces(chess.KNIGHT, chess.WHITE)])
+            knightsq = knightsq + sum([-knightstable[chess.square_mirror(i)] 
+                                            for i in board.pieces(chess.KNIGHT, chess.BLACK)])
+            bishopsq= sum([bishopstable[i] for i in board.pieces(chess.BISHOP, chess.WHITE)])
+            bishopsq= bishopsq + sum([-bishopstable[chess.square_mirror(i)] 
+                                            for i in board.pieces(chess.BISHOP, chess.BLACK)])
+            rooksq = sum([rookstable[i] for i in board.pieces(chess.ROOK, chess.WHITE)]) 
+            rooksq = rooksq + sum([-rookstable[chess.square_mirror(i)] 
+                                            for i in board.pieces(chess.ROOK, chess.BLACK)])
+            queensq = sum([queenstable[i] for i in board.pieces(chess.QUEEN, chess.WHITE)]) 
+            queensq = queensq + sum([-queenstable[chess.square_mirror(i)] 
+                                            for i in board.pieces(chess.QUEEN, chess.BLACK)])
+            kingsq = sum([kingstable[i] for i in board.pieces(chess.KING, chess.WHITE)]) 
+            kingsq = kingsq + sum([-kingstable[chess.square_mirror(i)] 
+                                            for i in board.pieces(chess.KING, chess.BLACK)])
+            
+            evaluation = material + pawnsq + knightsq + bishopsq+ rooksq+ queensq + kingsq 
+            if board.turn == color:
+                return evaluation + opponent_vulnerable - me_vulnerable
+            else:
+                return -evaluation + opponent_vulnerable - me_vulnerable
+            
+    def is_game_over(self, board):
+        return board.king(True) == None or board.king(False) == None
+        
+    def game_result(self, board, color):
+        
+        if board.king(color) == None:
+            x = 1
+            return x
+        if board.king(not color) == None:
+            x = -1
+            return x
 
     def __init__(self):
         #print("HELLO WORLD")
@@ -50,6 +209,7 @@ class BeliefBot(Player):
         self.need_new_boards = True
         self.sense_dict = {0:9,1:9,2:10,3:11,4:12,5:13,6:14,7:14,8:9,15:14,16:17,23:22,24:25,31:30,32:33,39:38,40:41,47:46,48:49,55:54,56:49,57:49,58:50,59:51,60:52,61:53,62:54,63:54}
         self.piece_scores = {'P':1, 'N':3, 'B':3, 'R':5, 'Q':9, 'K':9}
+        self.random_sampling = False
         
         
         self.tablebase = chess.syzygy.open_tablebase(r"C:\Users\kimbe\Documents\Brady Stuff\NRL Stuff\Chess Tools\syzygy")
@@ -194,9 +354,23 @@ class BeliefBot(Player):
             if len(new_belief_state) <= 500:
                 self.belief_state = new_belief_state
                     
-            else:
+            elif self.random_sampling:
                 #print("narrowed down")
                 self.belief_state = random.sample(new_belief_state,500)
+                
+            else:
+                print("ORDERED NARROW DOWN")
+                belief_scores = []
+                for belief in new_belief_state:
+                    board = belief.board.copy()
+                    belief_scores.append(self.evaluate_board(board, board.turn))
+                
+                ordered_beliefs = [x for _,x in sorted(zip(belief_scores, new_belief_state))]
+                ordered_beliefs.reverse()
+                
+                self.belief_state = ordered_beliefs[0:500]
+                
+                
                 
             print("sampled belief state: " + str(len(self.belief_state)))
             
