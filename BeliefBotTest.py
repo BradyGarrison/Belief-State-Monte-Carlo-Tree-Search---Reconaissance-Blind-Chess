@@ -374,7 +374,7 @@ class BeliefBot(Player):
                 #print(len(B))
                 inds = B.argsort()
                 sorted_a = A[inds]
-                self.belief_state = list(sorted_a)
+                self.belief_state = list(sorted_a)[0:500]
                              
                 
                 
@@ -395,7 +395,10 @@ class BeliefBot(Player):
         x = self.belief_state.copy()
         root_node = BSMCTSNode(root_node = True, color = self.color, beliefState = x)
         try:
-            actions, weights = BSMCTS(root_node, 30, 20)
+            if self.color:
+                actions, weights = BSMCTS(root_node, 30, 20)
+            else:
+                actions, weights = BSMCTS(root_node, 30, 20)
             
         except IndexError:
             
@@ -686,7 +689,7 @@ class BeliefBot(Player):
                 #print(len(B))
                 inds = B.argsort()
                 sorted_a = A[inds]
-                self.board_set = list(sorted_a)
+                self.board_set = list(sorted_a)[0:500]
             
         print("possible boards: " + str(len(self.board_set)))
 
@@ -754,8 +757,8 @@ def maxRewardAction(node, backup = False):
         reward = actionReward(node, action)
 
         choices_weights.append(reward)
-    #print(node.actions)
-    #print(choices_weights)
+    print(node.actions)
+    print(choices_weights)
     
     if backup:
         return node.actions, choices_weights
@@ -978,7 +981,7 @@ class Belief():
     
     
     def simulate(self):
-
+        
         simulation_number = 1
 
 
@@ -991,6 +994,10 @@ class Belief():
         return x
         
         """
+        
+        new_board = self.board.copy()
+        new_board.clear_stack()
+        
         enemy_king_square = new_board.king(not new_board.turn)
         my_king_square = new_board.king(new_board.turn)
         try:
@@ -1007,10 +1014,10 @@ class Belief():
             
         if enemy_king_attackers:
             #print("I can win")
-            return 1
+            return 10
         elif my_king_attackers:
             #print("I can lose")
-            return -1
+            return -5
         else:
             
             x = self.singleRandomSim(new_board)
