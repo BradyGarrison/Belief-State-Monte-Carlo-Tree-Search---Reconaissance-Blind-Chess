@@ -36,6 +36,40 @@ def normalize(belief_state):
 
 
 class BeliefBot(Player):
+    
+    def __init__(self):
+        #print("HELLO WORLD")
+        self.board = None
+        self.color = None
+        self.opponent_color = None
+        self.belief_state = []
+        self.board_set = []
+        self.my_piece_captured_square = None
+        self.need_new_beliefs = True
+        self.need_new_boards = True
+        self.sense_dict = {0:9,1:9,2:10,3:11,4:12,5:13,6:14,7:14,8:9,15:14,16:17,23:22,24:25,31:30,32:33,39:38,40:41,47:46,48:49,55:54,56:49,57:49,58:50,59:51,60:52,61:53,62:54,63:54}
+        self.piece_scores = {'P':1, 'N':3, 'B':3, 'R':5, 'Q':9, 'K':9}
+        self.random_sampling = False
+        
+        
+        self.tablebase = chess.syzygy.open_tablebase(r"C:\Users\kimbe\Documents\Brady Stuff\NRL Stuff\Chess Tools\syzygy")
+        #self.tablebase.add_directory(r"E:\SEAP 2021\Syzygy-6")
+        # make sure stockfish environment variable exists
+        if STOCKFISH_ENV_VAR not in os.environ:
+            raise KeyError(
+                'TroutBot requires an environment variable called "{}" pointing to the Stockfish executable'.format(
+                    STOCKFISH_ENV_VAR))
+
+        # make sure there is actually a file
+        stockfish_path = os.environ[STOCKFISH_ENV_VAR]
+        if not os.path.exists(stockfish_path):
+            raise ValueError('No stockfish executable found at "{}"'.format(stockfish_path))
+
+        # initialize the stockfish engine
+        self.engine = chess.engine.SimpleEngine.popen_uci(stockfish_path)
+        self.engine.configure({"SyzygyPath":r"C:\Users\kimbe\Documents\Brady Stuff\NRL Stuff\Chess Tools\syzygy"})
+    
+    
     def evaluate_board(self, board, color):
             
             """
@@ -197,37 +231,7 @@ class BeliefBot(Player):
             x = -1
             return x
 
-    def __init__(self):
-        #print("HELLO WORLD")
-        self.board = None
-        self.color = None
-        self.opponent_color = None
-        self.belief_state = []
-        self.board_set = []
-        self.my_piece_captured_square = None
-        self.need_new_beliefs = True
-        self.need_new_boards = True
-        self.sense_dict = {0:9,1:9,2:10,3:11,4:12,5:13,6:14,7:14,8:9,15:14,16:17,23:22,24:25,31:30,32:33,39:38,40:41,47:46,48:49,55:54,56:49,57:49,58:50,59:51,60:52,61:53,62:54,63:54}
-        self.piece_scores = {'P':1, 'N':3, 'B':3, 'R':5, 'Q':9, 'K':9}
-        self.random_sampling = False
-        
-        
-        self.tablebase = chess.syzygy.open_tablebase(r"C:\Users\kimbe\Documents\Brady Stuff\NRL Stuff\Chess Tools\syzygy")
-        #self.tablebase.add_directory(r"E:\SEAP 2021\Syzygy-6")
-        # make sure stockfish environment variable exists
-        if STOCKFISH_ENV_VAR not in os.environ:
-            raise KeyError(
-                'TroutBot requires an environment variable called "{}" pointing to the Stockfish executable'.format(
-                    STOCKFISH_ENV_VAR))
-
-        # make sure there is actually a file
-        stockfish_path = os.environ[STOCKFISH_ENV_VAR]
-        if not os.path.exists(stockfish_path):
-            raise ValueError('No stockfish executable found at "{}"'.format(stockfish_path))
-
-        # initialize the stockfish engine
-        self.engine = chess.engine.SimpleEngine.popen_uci(stockfish_path)
-        self.engine.configure({"SyzygyPath":r"C:\Users\kimbe\Documents\Brady Stuff\NRL Stuff\Chess Tools\syzygy"})
+    
         
 
     def possibleMoves(self, board, color):
@@ -394,9 +398,17 @@ class BeliefBot(Player):
         
         x = self.belief_state.copy()
         root_node = BSMCTSNode(root_node = True, color = self.color, beliefState = x)
+        
+        
+        iterations = 30
+        if len(self.belief_state) > 30:
+            iterations += int(len(self.belief_state)/10)
+        
+            
+        
         try:
             if self.color:
-                actions, weights = BSMCTS(root_node, 30, 20)
+                actions, weights = BSMCTS(root_node, iterations, 20)
             else:
                 actions, weights = BSMCTS(root_node, 30, 20)
             
@@ -839,16 +851,21 @@ def BSMCTS(root_node, max_samples, max_iterations):
 
 def expansion(belief, node):
     
-    belief.visits = 0
-    
     for action in belief.actions():
-        new_node = nodeTakeAction(node, action)
-        if new_node not in node.children:
+        
+        if action not in [c.parent_action for c in node.children]:
+            new_node = nodeTakeAction(node, action)
             node.children.append(new_node)
-         
-        new_belief = beliefTakeAction(belief, action)
-        if new_belief not in new_node.beliefs:
-            new_node.beliefs.append(new_belief)
+            
+        else:
+            for c in node.children:
+                if c.parent_action == action:
+                    action_node = c
+                    break
+                
+            new_belief = beliefTakeAction(belief, action)
+            if new_belief not in action_node.beliefs:
+                action_node.beliefs.append(new_belief)
             
 
 """
@@ -894,11 +911,21 @@ def search(belief, node):
         return reward
     
     if (node.children == []):
-        expansion(belief, node)
+        if not belief.is_game_over(belief.board):
+            expansion(belief, node)
+        else:
+            return belief.game_result(belief.board, node.color)
+        
     node.visits += 1    
     belief.visits += 1
     action = selection(belief, node)
-    reward = 1 * search(beliefTakeAction(belief, action), nodeTakeAction(node, action))
+    
+    for c in node.children:
+        if c.parent_action == action:
+            node_to_search = c
+            break
+    
+    reward = -1 * search(beliefTakeAction(belief, action), node_to_search)
     
     if action in belief.actionVisits.keys():
         belief.actionVisits[action] += 1
@@ -930,7 +957,7 @@ def selection(belief, node):
         action = maxNodeRewardEstimation(node,belief)
         
     else:
-        action = rouleteWheelSelection(node.beliefs)
+        action = roulette_wheel_selection(get_action_scores(node))
         
     return action
 
@@ -954,14 +981,28 @@ def nodeRewardEstimation(node,action):
     NBa = actionVisits(node, action)
     return U + exploration * math.sqrt(lnN / NBa)
 
-def roulette_wheel_selection(beliefs):
-    maximum = sum(belief.probability for belief in beliefs)
+def get_action_scores(node):
+    
+    action_scores = []
+    for c in node.children:
+        action = c.parent_action
+        U = actionReward(node,action)
+        lambada = 0.7
+        score = math.exp(U * lambada)
+        
+        action_scores.append([action, score])
+        
+    return action_scores
+        
+
+def roulette_wheel_selection(actions):
+    maximum = sum(action[1] for action in actions)
     pick = random.uniform(0, maximum)
     current = 0
-    for belief in beliefs:
-        current += belief.probability
+    for action in actions:
+        current += action[1]
         if current > pick:
-            return belief
+            return action[0]
     
 class Belief():
     
@@ -981,8 +1022,6 @@ class Belief():
     
     
     def simulate(self):
-        
-        simulation_number = 1
 
 
         #board = self.board
