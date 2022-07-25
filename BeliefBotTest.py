@@ -1,4 +1,4 @@
-# Played as v45
+
 
 import chess
 import chess.engine
@@ -17,8 +17,35 @@ from itertools import groupby
 import chess.svg
 
 
+
 STOCKFISH_ENV_VAR = 'STOCKFISH_EXECUTABLE'
 os.environ['STOCKFISH_EXECUTABLE'] = r"C:\Users\kimbe\Documents\Brady Stuff\NRL Stuff\Chess Tools\lc0-v0.28.2-windows-cpu-dnnl\lc0.exe"
+
+
+tablebase = chess.syzygy.open_tablebase(r"C:\Users\kimbe\Documents\Brady Stuff\NRL Stuff\Chess Tools\syzygy")
+#self.tablebase.add_directory(r"E:\SEAP 2021\Syzygy-6")
+# make sure stockfish environment variable exists
+if STOCKFISH_ENV_VAR not in os.environ:
+    raise KeyError(
+        'TroutBot requires an environment variable called "{}" pointing to the Stockfish executable'.format(
+            STOCKFISH_ENV_VAR))
+
+# make sure there is actually a file
+stockfish_path = os.environ[STOCKFISH_ENV_VAR]
+if not os.path.exists(stockfish_path):
+    raise ValueError('No stockfish executable found at "{}"'.format(stockfish_path))
+
+# initialize the stockfish engine
+global engine
+engine = chess.engine.SimpleEngine.popen_uci(stockfish_path)
+engine.configure({"SyzygyPath":r"C:\Users\kimbe\Documents\Brady Stuff\NRL Stuff\Chess Tools\syzygy"})
+
+
+
+
+
+
+
 
 def normalize(belief_state):
     
@@ -857,15 +884,14 @@ def expansion(belief, node):
             new_node = nodeTakeAction(node, action)
             node.children.append(new_node)
             
-        else:
-            for c in node.children:
-                if c.parent_action == action:
-                    action_node = c
-                    break
+        for c in node.children:
+            if c.parent_action == action:
+                action_node = c
+                break
                 
-            new_belief = beliefTakeAction(belief, action)
-            if new_belief not in action_node.beliefs:
-                action_node.beliefs.append(new_belief)
+        new_belief = beliefTakeAction(belief, action)
+        if new_belief not in action_node.beliefs:
+            action_node.beliefs.append(new_belief)
             
 
 """
@@ -914,7 +940,7 @@ def search(belief, node):
         if not belief.is_game_over(belief.board):
             expansion(belief, node)
         else:
-            return belief.game_result(belief.board, node.color)
+            return 10000 * belief.game_result(belief.board, node.color)
         
     node.visits += 1    
     belief.visits += 1
@@ -924,7 +950,8 @@ def search(belief, node):
         if c.parent_action == action:
             node_to_search = c
             break
-    
+
+
     reward = -1 * search(beliefTakeAction(belief, action), node_to_search)
     
     if action in belief.actionVisits.keys():
@@ -954,10 +981,12 @@ def search(belief, node):
 def selection(belief, node):
     
     if node.isPlayerNode():
+        #print("Opponent Guessing")
         action = maxNodeRewardEstimation(node,belief)
         
     else:
-        action = roulette_wheel_selection(get_action_scores(node))
+        #print("Opponent Predicting")
+        action = roulette_wheel_selection(get_action_scores(node), belief)
         
     return action
 
@@ -995,14 +1024,24 @@ def get_action_scores(node):
     return action_scores
         
 
-def roulette_wheel_selection(actions):
+def roulette_wheel_selection(actions, belief):
+    
+    legal_actions = belief.actions()
+    
     maximum = sum(action[1] for action in actions)
     pick = random.uniform(0, maximum)
     current = 0
     for action in actions:
         current += action[1]
         if current > pick:
-            return action[0]
+            
+            if action[0] in legal_actions:
+                return action[0]
+            else:
+                print("REDRAW for legal action")
+                return roulette_wheel_selection(actions,belief)
+        
+        
     
 class Belief():
     
@@ -1021,7 +1060,7 @@ class Belief():
     
     
     
-    def simulate(self):
+    def simulate_1(self):
 
 
         #board = self.board
@@ -1091,7 +1130,7 @@ class Belief():
         return self.game_result(new_board, color)
 
  
-    def new_simulate(self):
+    def simulate_2(self):
         
         board = self.board
         new_board = board.copy()
@@ -1246,6 +1285,39 @@ class Belief():
                 return evaluation + opponent_vulnerable - me_vulnerable
             else:
                 return -evaluation + opponent_vulnerable - me_vulnerable
+            
+            
+    def simulate(self):
+        new_board = self.board.copy()
+        new_board.clear_stack()
+        
+        
+        
+        enemy_king_square = new_board.king(not new_board.turn)
+        my_king_square = new_board.king(new_board.turn)
+        try:
+            enemy_king_attackers = new_board.attackers(new_board.turn, enemy_king_square)
+        except TypeError:
+            #print("Type Error Trapped")
+            enemy_king_attackers = False
+            
+        try:
+            my_king_attackers = new_board.attackers(not new_board.turn, my_king_square)
+        except TypeError:
+            #print("Type Error Trapped")
+            my_king_attackers = False
+            
+        if enemy_king_attackers:
+            #print("I can win")
+            return 1000
+        elif my_king_attackers:
+            #print("I can lose")
+            return -1000
+        else:
+        
+        
+            info = engine.analyse(new_board, chess.engine.Limit(time=0.1))
+            return info['score'].wdl().pov(self.board.turn).wins - info['score'].wdl().pov(self.board.turn).losses
     
     def get_legal_actions(self, board): 
         return list(board.pseudo_legal_moves)
