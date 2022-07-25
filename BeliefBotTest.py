@@ -951,8 +951,10 @@ def search(belief, node):
             node_to_search = c
             break
 
-
-    reward = -1 * search(beliefTakeAction(belief, action), node_to_search)
+    if node_to_search.isPlayerNode():
+        reward = -1 * search(beliefTakeAction(belief, action), node_to_search)  
+    else:
+        reward = -1 * search(random.sample(node_to_search.beliefs, 1)[0], node_to_search)
     
     if action in belief.actionVisits.keys():
         belief.actionVisits[action] += 1
@@ -986,7 +988,7 @@ def selection(belief, node):
         
     else:
         #print("Opponent Predicting")
-        action = roulette_wheel_selection(get_action_scores(node), belief)
+        action = roulette_wheel_selection(get_action_scores(node))
         
     return action
 
@@ -1017,16 +1019,18 @@ def get_action_scores(node):
         action = c.parent_action
         U = actionReward(node,action)
         lambada = 0.7
-        score = math.exp(U * lambada)
+        
+        try:
+            score = math.exp(U * lambada)
+        except OverflowError:
+            score = float('inf')
         
         action_scores.append([action, score])
         
     return action_scores
         
 
-def roulette_wheel_selection(actions, belief):
-    
-    legal_actions = belief.actions()
+def roulette_wheel_selection(actions):
     
     maximum = sum(action[1] for action in actions)
     pick = random.uniform(0, maximum)
@@ -1034,12 +1038,8 @@ def roulette_wheel_selection(actions, belief):
     for action in actions:
         current += action[1]
         if current > pick:
-            
-            if action[0] in legal_actions:
-                return action[0]
-            else:
-                print("REDRAW for legal action")
-                return roulette_wheel_selection(actions,belief)
+            return action[0]
+
         
         
     
