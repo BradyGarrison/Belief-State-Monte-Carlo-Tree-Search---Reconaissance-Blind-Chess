@@ -441,7 +441,7 @@ class BeliefBot(Player):
             if self.color:
                 actions, weights = BSMCTS(root_node, iterations, 20)
             else:
-                actions, weights = BSMCTS(root_node, 30, 20)
+                actions, weights = BSMCTS(root_node, 10, 50)
             
         except IndexError:
             
@@ -956,7 +956,7 @@ def search(belief, node):
             break
 
 
-    reward = -1 * search(beliefTakeAction(belief, action), node_to_search)  
+    reward = 1 * search(beliefTakeAction(belief, action), node_to_search)  
     
     
     
@@ -1000,11 +1000,7 @@ def maxNodeRewardEstimation(node, belief):
     choices_weights = []
     actions = belief.actions()
     for action in actions:
-        if action in belief.actionVisits.keys():
-            reward = nodeRewardEstimation(node, action)
-        else:
-            reward = 0
-
+        reward = nodeRewardEstimation(node, action)
         choices_weights.append(reward)
    
     return actions[np.argmax(choices_weights)]
@@ -1064,7 +1060,7 @@ class Belief():
     
     
     
-    def simulate_1(self):
+    def simulate(self):
 
 
         #board = self.board
@@ -1291,7 +1287,7 @@ class Belief():
                 return -evaluation + opponent_vulnerable - me_vulnerable
             
             
-    def simulate(self):
+    def simulate_3(self):
         global engine
         new_board = self.board.copy()
         new_board.clear_stack()
