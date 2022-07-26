@@ -53,7 +53,7 @@ def normalize(belief_state):
     for belief in belief_state:
         raw_list.append(belief.probability)
         
-    norm_list = [float(i)/max(raw_list) for i in raw_list]
+    norm_list = [float(i)/sum(raw_list) for i in raw_list]
     
     for x in range(len(belief_state)):
         belief_state[x].probability = norm_list[x]
@@ -412,8 +412,12 @@ class BeliefBot(Player):
                 
             print("sampled belief state: " + str(len(self.belief_state)))
             
+            
+
+            
             normalize(self.belief_state)
-        
+            
+
         
         
     def choose_move(self, move_actions: List[chess.Move], seconds_left: float) -> Optional[chess.Move]:
@@ -951,10 +955,10 @@ def search(belief, node):
             node_to_search = c
             break
 
-    if node_to_search.isPlayerNode():
-        reward = -1 * search(beliefTakeAction(belief, action), node_to_search)  
-    else:
-        reward = -1 * search(random.sample(node_to_search.beliefs, 1)[0], node_to_search)
+
+    reward = -1 * search(beliefTakeAction(belief, action), node_to_search)  
+    
+    
     
     if action in belief.actionVisits.keys():
         belief.actionVisits[action] += 1
@@ -1288,6 +1292,7 @@ class Belief():
             
             
     def simulate(self):
+        global engine
         new_board = self.board.copy()
         new_board.clear_stack()
         
@@ -1315,9 +1320,12 @@ class Belief():
             return -1000
         else:
         
-        
-            info = engine.analyse(new_board, chess.engine.Limit(time=0.1))
-            return info['score'].wdl().pov(self.board.turn).wins - info['score'].wdl().pov(self.board.turn).losses
+            try:
+                info = engine.analyse(new_board, chess.engine.Limit(time=0.1))
+                return info['score'].wdl().pov(self.board.turn).wins - info['score'].wdl().pov(self.board.turn).losses
+            except (chess.engine.EngineError, chess.engine.EngineTerminatedError) as e:
+                #print("engine crashed...rebooting")
+                engine = chess.engine.SimpleEngine.popen_uci(r"C:\Users\brady\OneDrive\Documents\SEAP Internship 2021\lc0-v0.28.0-windows-cpu-dnnl\lc0.exe")
     
     def get_legal_actions(self, board): 
         return list(board.pseudo_legal_moves)
@@ -1346,7 +1354,12 @@ class Belief():
 
 def beliefTakeAction(belief, action):
     new_state = belief.board.copy()
-    new_state.push(action)
+    
+    try:
+        new_state.push(action)
+        
+    except:
+        new_state.turn = not new_state.turn
     
     return Belief(new_state, belief.probability)
 
