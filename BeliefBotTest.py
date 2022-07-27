@@ -1,4 +1,4 @@
-
+#played as v48
 
 import chess
 import chess.engine
