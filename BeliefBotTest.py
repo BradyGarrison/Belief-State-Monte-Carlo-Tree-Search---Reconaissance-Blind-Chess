@@ -894,7 +894,7 @@ def expansion(belief, node):
                 break
                 
         new_belief = beliefTakeAction(belief, action)
-        if new_belief not in action_node.beliefs:
+        if new_belief.board not in [b.board for b in action_node.beliefs]:
             action_node.beliefs.append(new_belief)
             
 
@@ -937,26 +937,33 @@ def search(belief, node):
     #print(str(belief))
     if (node.visits == 0):
         node.visits += 1
-        reward = belief.simulate()
-        return reward
-    
-    if (node.children == []):
+        
         if not belief.is_game_over(belief.board):
-            expansion(belief, node)
+            reward = belief.simulate()
+            return reward
         else:
             return 10000 * belief.game_result(belief.board, node.color)
+        
+    if node.children == []:
+        expansion(belief,node)
+        
+    elif (belief.board not in [b.board for b in node.beliefs]):
+        node.beliefs.append(belief)
+        expansion(belief, node)
+        
         
     node.visits += 1    
     belief.visits += 1
     action = selection(belief, node)
     
+    """
     for c in node.children:
         if c.parent_action == action:
             node_to_search = c
             break
+    """
 
-
-    reward = 1 * search(beliefTakeAction(belief, action), node_to_search)  
+    reward = 1 * search(beliefTakeAction(belief, action), nodeTakeAction(node, action))  
     
     
     
@@ -1000,7 +1007,12 @@ def maxNodeRewardEstimation(node, belief):
     choices_weights = []
     actions = belief.actions()
     for action in actions:
-        reward = nodeRewardEstimation(node, action)
+        if action in belief.actionVisits.keys():
+            reward = nodeRewardEstimation(node, action)
+        
+        else:
+            reward = 0
+        
         choices_weights.append(reward)
    
     return actions[np.argmax(choices_weights)]
