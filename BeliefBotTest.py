@@ -448,7 +448,7 @@ class BeliefBot(Player):
             print("Index Error - Random Move")
             return random.choice(move_actions + [None])
         
-        move_choice = actions[np.argmax(weights)]
+        move_choice = actions[np.argmin(weights)]
         if move_choice in move_actions:
             print("Movement MCTS successful")
             print(move_choice)
@@ -458,7 +458,7 @@ class BeliefBot(Player):
             x = -1 * len(weights)
             while(i > x):
                 #print(i)
-                move_choice = actions[np.argpartition(weights, -1)[i]]
+                move_choice = actions[np.argpartition(weights, 1)[i]]
                 if move_choice in move_actions:
                     print("Backup MCTS successful after " + str(-1 * i) + " tries")
                     print(move_choice)
@@ -806,7 +806,7 @@ def maxRewardAction(node, backup = False):
     if backup:
         return node.actions, choices_weights
     else:
-        return node.actions[np.argmax(choices_weights)]
+        return node.actions[np.argmin(choices_weights)]
 
 def actionVisits(node, action):
     visits = 0
@@ -970,7 +970,7 @@ def search(belief, node):
     if node_to_search == None:
         node_to_search = nodeTakeAction(node,action)
 
-    reward = 1 * search(beliefTakeAction(belief, action), node_to_search)  
+    reward = -1 * search(beliefTakeAction(belief, action), node_to_search)  
     
     
     if action in belief.actionVisits.keys():
@@ -1021,7 +1021,7 @@ def maxNodeRewardEstimation(node, belief):
         
         choices_weights.append(reward)
    
-    return actions[np.argmax(choices_weights)]
+    return actions[np.argmin(choices_weights)]
 
 def nodeRewardEstimation(node,action):
     exploration = 0.7
