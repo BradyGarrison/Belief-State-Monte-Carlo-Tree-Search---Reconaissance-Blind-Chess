@@ -800,8 +800,8 @@ def maxRewardAction(node, backup = False):
         reward = actionReward(node, action)
 
         choices_weights.append(reward)
-    print(node.actions)
-    print(choices_weights)
+    #print(node.actions)
+    #print(choices_weights)
     
     if backup:
         return node.actions, choices_weights
@@ -887,15 +887,17 @@ def expansion(belief, node):
         if action not in [c.parent_action for c in node.children]:
             new_node = nodeTakeAction(node, action)
             node.children.append(new_node)
-            
-        for c in node.children:
-            if c.parent_action == action:
-                action_node = c
-                break
-                
-        new_belief = beliefTakeAction(belief, action)
-        if new_belief.board not in [b.board for b in action_node.beliefs]:
-            action_node.beliefs.append(new_belief)
+        
+        else:
+            #print("Node already exists, but adding belief to it")
+            for c in node.children:
+                if c.parent_action == action:
+                    action_node = c
+                    break
+                    
+            new_belief = beliefTakeAction(belief, action)
+            if new_belief.board not in [b.board for b in action_node.beliefs]:
+                action_node.beliefs.append(new_belief)
             
 
 """
@@ -945,9 +947,12 @@ def search(belief, node):
             return 10000 * belief.game_result(belief.board, node.color)
         
     if node.children == []:
+        #print("New Belief!")
+        node.beliefs.append(belief)
         expansion(belief,node)
         
     elif (belief.board not in [b.board for b in node.beliefs]):
+        #print("haven't seen this belief yet!")
         node.beliefs.append(belief)
         expansion(belief, node)
         
@@ -956,15 +961,16 @@ def search(belief, node):
     belief.visits += 1
     action = selection(belief, node)
     
-    """
+    node_to_search = None
     for c in node.children:
         if c.parent_action == action:
             node_to_search = c
             break
-    """
-
-    reward = 1 * search(beliefTakeAction(belief, action), nodeTakeAction(node, action))  
     
+    if node_to_search == None:
+        node_to_search = nodeTakeAction(node,action)
+
+    reward = 1 * search(beliefTakeAction(belief, action), node_to_search)  
     
     
     if action in belief.actionVisits.keys():
