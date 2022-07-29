@@ -448,12 +448,14 @@ class BeliefBot(Player):
             print("Index Error - Random Move")
             return random.choice(move_actions + [None])
         
-        if not self.color:
+        if self.color:
             move_choice = actions[np.argmin(weights)]
             order = 1
+            
         else:
             move_choice = actions[np.argmax(weights)]
             order = -1
+        
             
         if move_choice in move_actions:
             print("Movement MCTS successful")
@@ -464,7 +466,7 @@ class BeliefBot(Player):
             x = -1 * len(weights)
             while(i > x):
                 #print(i)
-                move_choice = actions[np.argpartition(weights, -1)[i]]
+                move_choice = actions[np.argpartition(weights, order)[i]]
                 if move_choice in move_actions:
                     print("Backup MCTS successful after " + str(-1 * i) + " tries")
                     print(move_choice)
@@ -812,11 +814,11 @@ def maxRewardAction(node, backup = False):
     if backup:
         return node.actions, choices_weights
     else:
-        if not node.playerColor:
+        if node.playerColor:
             return node.actions[np.argmin(choices_weights)]
         else:
             return node.actions[np.argmax(choices_weights)]
-
+      
 def actionVisits(node, action):
     visits = 0
     for belief in node.beliefs:
@@ -979,7 +981,7 @@ def search(belief, node):
     if node_to_search == None:
         node_to_search = nodeTakeAction(node,action)
     
-    if not node.playerColor:
+    if node.playerColor == True:
         reward = -1 * search(beliefTakeAction(belief, action), node_to_search)
     else:
         reward = 1 * search(beliefTakeAction(belief, action), node_to_search)
@@ -1031,9 +1033,10 @@ def maxNodeRewardEstimation(node, belief):
             reward = 0
         
         choices_weights.append(reward)
-        
+    
     if not node.playerColor:
         return actions[np.argmin(choices_weights)]
+    
     else:
         return actions[np.argmax(choices_weights)]
 
