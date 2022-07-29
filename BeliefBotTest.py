@@ -1,4 +1,4 @@
-#played as v48
+#played as v49
 
 import chess
 import chess.engine
