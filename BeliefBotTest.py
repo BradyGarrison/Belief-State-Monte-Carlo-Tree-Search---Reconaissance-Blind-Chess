@@ -768,12 +768,6 @@ class BSMCTSNode():
         
     
     
-    def get_visits(self):
-        return self.visits
-    
-    def get_reward(self):
-        return self.reward
-    
     def generateBelief(self):
         belief = random.sample(self.beliefState, 1)[0]
         
@@ -805,7 +799,7 @@ def nodeTakeAction(node, action):
 def maxRewardAction(node, backup = False):
     choices_weights = []
     for action in node.actions:
-        reward = actionReward(node, action)
+        reward = actionUtility(node, action)
 
         choices_weights.append(reward)
     #print(node.actions)
@@ -828,14 +822,42 @@ def actionVisits(node, action):
     return visits
 
 
-def actionReward(node, action):
+def actionUtility(node, action):
     reward = 0
     for belief in node.beliefs:
+        probability = beliefProbability(belief, node)
         if action in belief.actionRewards.keys():
-            reward += belief.actionRewards[action]
+            reward += probability * belief.actionRewards[action]
         
     return reward
-         
+
+def beliefProbability(belief, node):
+    myBeliefFactor = beliefFactor(belief)
+    
+    totalBeliefFactor = 0
+    for belief in node.beliefs:
+        totalBeliefFactor += beliefFacto(belief)
+        
+    return myBeliefFactor/totalBeliefFactor
+    
+def beliefFactor(belief):
+    adjustment = 0.7
+    weight = 0.7
+    return math.exp(adjustment * weight * beliefUtility(belief))
+    
+def beliefUtility(belief):
+    weight = 0
+    for action in belief.actions:
+        reward = belief.actionRewards[action]
+        visits = belief.actionVisits[action]
+        weight += reward * visits
+        
+    totalVisits = sum(belief.actionVisits.values())
+    
+    return weight/totalVisits
+    
+        
+       
 
 """
 Broot , maximal samplings T, maximal iterations S
@@ -1042,7 +1064,7 @@ def maxNodeRewardEstimation(node, belief):
 
 def nodeRewardEstimation(node,action):
     exploration = 0.7
-    U = actionReward(node,action) 
+    U = actionUtility(node,action) 
     lnN = math.log(node.visits)
     NBa = actionVisits(node, action)
     return U + exploration * math.sqrt(lnN / NBa)
@@ -1052,7 +1074,7 @@ def get_action_scores(node):
     action_scores = []
     for c in node.children:
         action = c.parent_action
-        U = actionReward(node,action)
+        U = actionUtility(node,action)
         lambada = 0.7
         
         try:
