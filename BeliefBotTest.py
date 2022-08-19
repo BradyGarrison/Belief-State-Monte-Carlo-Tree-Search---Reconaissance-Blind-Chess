@@ -439,7 +439,7 @@ class BeliefBot(Player):
         
         try:
             if self.color:
-                actions, weights = BSMCTS(root_node, iterations, 20)
+                actions, weights = BSMCTS(root_node, 10, 20)
             else:
                 actions, weights = BSMCTS(root_node, 10, 50)
             
@@ -836,25 +836,41 @@ def beliefProbability(belief, node):
     
     totalBeliefFactor = 0
     for belief in node.beliefs:
-        totalBeliefFactor += beliefFacto(belief)
-        
-    return myBeliefFactor/totalBeliefFactor
+        totalBeliefFactor += beliefFactor(belief)
+    
+    try:
+        answer = myBeliefFactor/totalBeliefFactor
+    except ZeroDivisionError:
+        answer = 0
+    return answer
     
 def beliefFactor(belief):
     adjustment = 0.7
     weight = 0.7
-    return math.exp(adjustment * weight * beliefUtility(belief))
+    
+    try:
+        factor = math.exp(adjustment * weight * beliefUtility(belief))
+    except OverflowError:
+        factor = float('inf')
+    return factor
     
 def beliefUtility(belief):
     weight = 0
-    for action in belief.actions:
-        reward = belief.actionRewards[action]
-        visits = belief.actionVisits[action]
+    for action in belief.actions():
+        if action in belief.actionRewards.keys():
+            reward = belief.actionRewards[action]
+            visits = belief.actionVisits[action]
+        else:
+            reward = 0
+            visits = 0
         weight += reward * visits
         
     totalVisits = sum(belief.actionVisits.values())
     
-    return weight/totalVisits
+    if totalVisits == 0:
+        return 0
+    else:
+        return weight/totalVisits
     
         
        
@@ -1003,10 +1019,7 @@ def search(belief, node):
     if node_to_search == None:
         node_to_search = nodeTakeAction(node,action)
     
-    if node.playerColor == True:
-        reward = -1 * search(beliefTakeAction(belief, action), node_to_search)
-    else:
-        reward = 1 * search(beliefTakeAction(belief, action), node_to_search)
+    reward = 1 * search(beliefTakeAction(belief, action), node_to_search)
     
     if action in belief.actionVisits.keys():
         belief.actionVisits[action] += 1
